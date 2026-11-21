@@ -145,6 +145,7 @@ async function send() {
     showError(error.message || 'Lỗi kết nối.');
   } finally {
     assistant.loading = false; state.busy = false; resetChallenge();
+    window.dispatchEvent(new CustomEvent('vinfqa:inference-finished'));
     render(); refs.question.focus();
   }
 }
