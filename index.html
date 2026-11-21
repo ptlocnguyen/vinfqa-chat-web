@@ -18,13 +18,13 @@
         <div class="brand"><span class="brand-mark" aria-hidden="true">V</span><span><strong>VietInfographicQA</strong><small>SSRC V04 · RESEARCH DEMO</small></span></div>
         <button id="closeSidebar" class="icon-btn sidebar-close" title="Đóng thanh bên" aria-label="Đóng thanh bên">✕</button>
       </div>
-      <button id="newChat" class="new-chat"><span class="plus-icon">＋</span> Cuộc trò chuyện mới <span class="kbd">⌘ K</span></button>
+      <button id="newChat" class="new-chat"><span class="plus-icon" aria-hidden="true">＋</span><span>Cuộc trò chuyện mới</span><span class="kbd">Ctrl K</span></button>
       <div class="sidebar-section-title">CÁC PHIÊN HIỆN TẠI</div>
       <nav id="chatList" class="chat-list" aria-label="Các phiên chat"></nav>
       <div class="sidebar-bottom">
         <div class="mini-info"><span class="pulse-dot"></span><div><strong>S3-QLoRA v04</strong><small>Qwen3-VL-4B · 4 nhánh</small></div></div>
         <p>Lịch sử hội thoại chỉ ở trong tab. Khi bấm Gửi, ảnh và câu hỏi được chuyển qua Cloudflare Worker tới Hugging Face Space để suy luận và có thể được lưu tạm ở phía Space. Không gửi dữ liệu nhạy cảm.</p>
-        <a href="https://huggingface.co/spaces/ptlocnguyen/s3-qlora-v04-demo" target="_blank" rel="noopener noreferrer">Space gốc <span aria-hidden="true">↗</span></a>
+        <a href="https://huggingface.co/spaces/ptlocnguyen/s3-qlora-v04-demo" target="_blank" rel="noopener noreferrer">Mở Hugging Face Space</a>
       </div>
     </aside>
     <div id="sidebarBackdrop" class="sidebar-backdrop" hidden aria-hidden="true"></div>
@@ -32,7 +32,7 @@
     <main class="main-column">
       <header class="topbar">
         <button id="openSidebar" class="icon-btn menu-btn" aria-label="Mở thanh bên" title="Mở thanh bên">☰</button>
-        <div class="topbar-model"><strong>S3-QLoRA Chat</strong><span class="version">v04</span><span class="chevron">⌄</span></div>
+        <div class="topbar-model"><strong>S3-QLoRA Chat</strong><span class="version">v04</span></div>
         <div class="topbar-actions"><span id="serviceStatus" class="service-status"><span class="status-dot"></span>Chưa kết nối</span><button id="themeToggle" class="icon-btn" aria-label="Đổi giao diện sáng tối" title="Đổi giao diện sáng tối">☀</button><button id="aboutToggle" class="icon-btn about" aria-label="Thông tin demo" title="Thông tin demo">ⓘ</button></div>
       </header>
 
@@ -44,20 +44,22 @@
         <button type="button" id="gpuQuotaRefresh" class="gpu-quota-refresh" title="Làm mới số dư GPU" aria-label="Làm mới quota GPU">↻</button>
       </section>
 
-      <section id="emptyState" class="empty-state" aria-labelledby="heroTitle">
-        <div class="hero-logo">V<span class="hero-spark">✦</span></div>
-        <p class="eyebrow">VIETINFOGRAPHICQA · SSRC 2026</p>
-        <h1 id="heroTitle">Hỏi ảnh, <em>hiểu thông tin.</em></h1>
-        <p class="hero-description">Đính kèm infographic và đặt câu hỏi tiếng Việt. Hệ thống S3-QLoRA tự chọn Frozen hoặc một trong ba nhánh chuyên biệt để trả lời.</p>
-        <div class="examples" id="examples">
-          <button type="button" data-prompt="Infographic này nói về chủ đề gì?">Tóm tắt nội dung <span>↗</span></button>
-          <button type="button" data-prompt="Có bao nhiêu nội dung được liệt kê trong ảnh?">Đếm thông tin <span>↗</span></button>
-          <button type="button" data-prompt="Những số liệu chính trong infographic là gì?">Đọc số liệu <span>↗</span></button>
-          <button type="button" data-prompt="Các quy định được nêu ở phần nào của infographic?">Tìm quy định <span>↗</span></button>
-        </div>
-      </section>
+      <div class="conversation-stage">
+        <section id="emptyState" class="empty-state" aria-labelledby="heroTitle">
+          <div class="hero-logo">V<span class="hero-spark">✦</span></div>
+          <p class="eyebrow">VIETINFOGRAPHICQA · SSRC 2026</p>
+          <h1 id="heroTitle">Hỏi ảnh, <em>hiểu thông tin.</em></h1>
+          <p class="hero-description">Đính kèm một infographic và đặt câu hỏi bằng tiếng Việt. Hệ thống sẽ tự chọn nhánh S3-QLoRA phù hợp để trả lời.</p>
+          <div class="examples" id="examples" aria-label="Câu hỏi gợi ý">
+            <button type="button" data-prompt="Infographic này nói về chủ đề gì?"><strong>Tóm tắt nội dung</strong><small>Nắm nhanh chủ đề chính</small></button>
+            <button type="button" data-prompt="Có bao nhiêu nội dung được liệt kê trong ảnh?"><strong>Đếm thông tin</strong><small>Thống kê các mục trong ảnh</small></button>
+            <button type="button" data-prompt="Những số liệu chính trong infographic là gì?"><strong>Đọc số liệu</strong><small>Trích xuất con số nổi bật</small></button>
+            <button type="button" data-prompt="Các quy định được nêu ở phần nào của infographic?"><strong>Tìm quy định</strong><small>Xác định nội dung và vị trí</small></button>
+          </div>
+        </section>
 
-      <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+        <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+      </div>
 
       <div class="composer-wrap">
         <div id="errorNotice" class="error-notice" hidden role="alert"></div>
@@ -67,10 +69,10 @@
             <label class="sr-only" for="questionInput">Câu hỏi bằng tiếng Việt</label>
             <textarea id="questionInput" rows="1" maxlength="1000" placeholder="Hỏi bất cứ điều gì về infographic…"></textarea>
           </div>
-          <div class="composer-bottom"><div class="left-tools"><label class="attach-button" for="imageInput" title="Đính kèm ảnh infographic"><span aria-hidden="true">＋</span><span>Ảnh infographic</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG · JPG · WebP</span></div><button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>↑</button></div>
+          <div class="composer-bottom"><div class="left-tools"><label class="attach-button" for="imageInput" title="Đính kèm ảnh infographic"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB</span></div><button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>Gửi</button></div>
+          <div class="proof-row"><div id="turnstileBox" class="turnstile-box"></div><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
         </div>
-        <div class="proof-row"><div id="turnstileBox" class="turnstile-box"></div><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
-        <p class="composer-footnote">Demo nghiên cứu: không gửi ảnh hoặc dữ liệu cá nhân/nhạy cảm · Ảnh và câu hỏi được xử lý qua Cloudflare/Hugging Face · Mỗi câu hỏi độc lập · Tối đa 32 token.</p>
+        <p class="composer-footnote">Không gửi dữ liệu cá nhân hoặc nhạy cảm · Mỗi câu hỏi độc lập · Tối đa 32 token</p>
       </div>
     </main>
   </div>
