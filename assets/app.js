@@ -16,7 +16,7 @@ const refs = {
   messages: $('#messages'), question: $('#questionInput'), imageInput: $('#imageInput'),
   imageChip: $('#imageChip'), preview: $('#previewImage'), imageName: $('#imageName'),
   imageMeta: $('#imageMeta'), error: $('#errorNotice'), send: $('#sendButton'),
-  turnstile: $('#turnstileBox'), status: $('#serviceStatus'), refreshCaptcha: $('#refreshCaptcha'),
+  turnstile: $('#turnstileBox'), proof: $('#proofRow'), status: $('#serviceStatus'), refreshCaptcha: $('#refreshCaptcha'),
   sidebarBackdrop: $('#sidebarBackdrop'), openSidebar: $('#openSidebar'), closeSidebar: $('#closeSidebar'),
 };
 
@@ -127,6 +127,7 @@ async function chooseFile(file) {
 }
 function resetChallenge() {
   state.turnstileToken = '';
+  refs.proof.dataset.state = 'loading';
   if (window.turnstile && state.widgetId !== null) window.turnstile.reset(state.widgetId);
   updateSendState();
 }
@@ -215,9 +216,9 @@ function renderTurnstileWidget() {
       sitekey: cfg.TURNSTILE_SITE_KEY,
       theme: root.classList.contains('theme-light') ? 'light' : 'dark',
       action: 'vinfqa_infer',
-      callback: (token) => { state.turnstileToken = token; updateSendState(); },
-      'expired-callback': () => {state.turnstileToken = ''; updateSendState();},
-      'error-callback': () => {state.turnstileToken = ''; refs.refreshCaptcha.hidden=false; updateSendState();},
+      callback: (token) => { state.turnstileToken = token; refs.proof.dataset.state = 'verified'; updateSendState(); },
+      'expired-callback': () => {state.turnstileToken = ''; refs.proof.dataset.state = 'loading'; updateSendState();},
+      'error-callback': () => {state.turnstileToken = ''; refs.proof.dataset.state = 'error'; refs.refreshCaptcha.hidden=false; updateSendState();},
     });
   } catch { refs.refreshCaptcha.hidden = false; }
 }
@@ -227,7 +228,7 @@ function rerenderTurnstile() {
   if (window.turnstile && state.widgetId !== null) {
     try { window.turnstile.remove(state.widgetId); } catch {}
   }
-  state.widgetId = null; state.turnstileStartedAt = Date.now(); refs.refreshCaptcha.hidden = true;
+  state.widgetId = null; state.turnstileStartedAt = Date.now(); refs.proof.dataset.state = 'loading'; refs.refreshCaptcha.hidden = true;
   updateSendState(); renderTurnstileWidget();
 }
 function initTurnstile() {

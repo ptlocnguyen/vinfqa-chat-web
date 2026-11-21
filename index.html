@@ -69,8 +69,11 @@
             <label class="sr-only" for="questionInput">Câu hỏi bằng tiếng Việt</label>
             <textarea id="questionInput" rows="1" maxlength="1000" placeholder="Hỏi bất cứ điều gì về infographic…"></textarea>
           </div>
-          <div class="composer-bottom"><div class="left-tools"><label class="attach-button" for="imageInput" title="Đính kèm ảnh infographic"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB</span></div><button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>Gửi</button></div>
-          <div class="proof-row"><div id="turnstileBox" class="turnstile-box"></div><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
+          <div class="composer-bottom">
+            <div class="left-tools"><label class="attach-button" for="imageInput" title="Đính kèm ảnh infographic"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB</span></div>
+            <div id="proofRow" class="proof-row" data-state="loading" aria-live="polite"><div id="turnstileBox" class="turnstile-box"></div><span class="verification-badge"><span aria-hidden="true">✓</span>Đã xác minh</span><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
+            <button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>Gửi</button>
+          </div>
         </div>
         <p class="composer-footnote">Không gửi dữ liệu cá nhân hoặc nhạy cảm · Mỗi câu hỏi độc lập · Tối đa 32 token</p>
       </div>
