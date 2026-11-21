@@ -33,6 +33,14 @@
         <div class="topbar-actions"><span id="serviceStatus" class="service-status"><span class="status-dot"></span>Chưa kết nối</span><button id="themeToggle" class="icon-btn" aria-label="Đổi giao diện sáng tối" title="Đổi giao diện sáng tối">☀</button><button id="aboutToggle" class="icon-btn about" aria-label="Thông tin demo" title="Thông tin demo">ⓘ</button></div>
       </header>
 
+      <section id="gpuQuota" class="gpu-quota-strip" data-state="loading" aria-label="Thời gian GPU miễn phí còn lại của tài khoản demo">
+        <div class="gpu-quota-label"><span class="gpu-quota-indicator" aria-hidden="true"></span><strong>ZeroGPU của tài khoản demo</strong></div>
+        <div class="gpu-quota-data"><strong id="gpuQuotaRemaining" aria-live="polite">Đang kiểm tra quota…</strong><span id="gpuQuotaReset">Đang đọc từ Hugging Face</span></div>
+        <div class="gpu-quota-progress" role="progressbar" aria-label="Tỷ lệ quota GPU còn lại" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="gpuQuotaBar"></span></div>
+        <span id="gpuQuotaUpdated" class="gpu-quota-updated">Chưa có dữ liệu</span>
+        <button type="button" id="gpuQuotaRefresh" class="gpu-quota-refresh" title="Làm mới số dư GPU" aria-label="Làm mới quota GPU">↻</button>
+      </section>
+
       <section id="emptyState" class="empty-state" aria-labelledby="heroTitle">
         <div class="hero-logo">V<span class="hero-spark">✦</span></div>
         <p class="eyebrow">VIETINFOGRAPHICQA · SSRC 2026</p>
@@ -67,5 +75,6 @@
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js"></script>
   <script type="module" src="./assets/app.js"></script>
+  <script type="module" src="./assets/quota.js"></script>
 </body>
 </html>
