@@ -22,6 +22,10 @@
       <div class="sidebar-section-title">CÁC PHIÊN HIỆN TẠI</div>
       <nav id="chatList" class="chat-list" aria-label="Các phiên chat"></nav>
       <div class="sidebar-bottom">
+        <section class="sidebar-verification" aria-labelledby="verificationTitle">
+          <div class="sidebar-verification-head"><div><strong id="verificationTitle">Xác minh bảo mật</strong><small>Bắt buộc trước khi gửi</small></div><span id="verificationShield" class="sidebar-shield" aria-hidden="true">◇</span></div>
+          <div id="proofRow" class="proof-row" data-state="loading" aria-live="polite" tabindex="-1"><div id="turnstileBox" class="turnstile-box"></div><span class="verification-badge"><span aria-hidden="true">✓</span>Đã xác minh</span><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
+        </section>
         <div class="mini-info"><span class="pulse-dot"></span><div><strong>S3-QLoRA v04</strong><small>Qwen3-VL-4B · 4 nhánh</small></div></div>
         <p>Lịch sử hội thoại chỉ ở trong tab. Khi bấm Gửi, ảnh và câu hỏi được chuyển qua Cloudflare Worker tới Hugging Face Space để suy luận và có thể được lưu tạm ở phía Space. Không gửi dữ liệu nhạy cảm.</p>
         <a href="https://huggingface.co/spaces/ptlocnguyen/s3-qlora-v04-demo" target="_blank" rel="noopener noreferrer">Mở Hugging Face Space</a>
@@ -33,16 +37,15 @@
       <header class="topbar">
         <button id="openSidebar" class="icon-btn menu-btn" aria-label="Mở thanh bên" title="Mở thanh bên">☰</button>
         <div class="topbar-model"><strong>S3-QLoRA Chat</strong><span class="version">v04</span></div>
+        <section id="gpuQuota" class="gpu-quota-strip" data-state="loading" aria-label="Thời gian GPU miễn phí còn lại của tài khoản demo">
+          <div class="gpu-quota-label"><span class="gpu-quota-indicator" aria-hidden="true"></span><strong>ZeroGPU demo</strong></div>
+          <div class="gpu-quota-data"><strong id="gpuQuotaRemaining" aria-live="polite">Đang kiểm tra quota…</strong><strong id="gpuQuotaCompact" class="gpu-quota-compact">GPU --</strong><span id="gpuQuotaReset">Đang đọc từ Hugging Face</span></div>
+          <div class="gpu-quota-progress" role="progressbar" aria-label="Tỷ lệ quota GPU còn lại" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="gpuQuotaBar"></span></div>
+          <span id="gpuQuotaUpdated" class="gpu-quota-updated">Chưa có dữ liệu</span>
+          <button type="button" id="gpuQuotaRefresh" class="gpu-quota-refresh" title="Làm mới số dư GPU" aria-label="Làm mới quota GPU">↻</button>
+        </section>
         <div class="topbar-actions"><span id="serviceStatus" class="service-status"><span class="status-dot"></span>Chưa kết nối</span><button id="themeToggle" class="icon-btn" aria-label="Đổi giao diện sáng tối" title="Đổi giao diện sáng tối">☀</button><button id="aboutToggle" class="icon-btn about" aria-label="Thông tin demo" title="Thông tin demo">ⓘ</button></div>
       </header>
-
-      <section id="gpuQuota" class="gpu-quota-strip" data-state="loading" aria-label="Thời gian GPU miễn phí còn lại của tài khoản demo">
-        <div class="gpu-quota-label"><span class="gpu-quota-indicator" aria-hidden="true"></span><strong>ZeroGPU của tài khoản demo</strong></div>
-        <div class="gpu-quota-data"><strong id="gpuQuotaRemaining" aria-live="polite">Đang kiểm tra quota…</strong><span id="gpuQuotaReset">Đang đọc từ Hugging Face</span></div>
-        <div class="gpu-quota-progress" role="progressbar" aria-label="Tỷ lệ quota GPU còn lại" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="gpuQuotaBar"></span></div>
-        <span id="gpuQuotaUpdated" class="gpu-quota-updated">Chưa có dữ liệu</span>
-        <button type="button" id="gpuQuotaRefresh" class="gpu-quota-refresh" title="Làm mới số dư GPU" aria-label="Làm mới quota GPU">↻</button>
-      </section>
 
       <div class="conversation-stage">
         <section id="emptyState" class="empty-state" aria-labelledby="heroTitle">
@@ -71,7 +74,7 @@
           </div>
           <div class="composer-bottom">
             <div class="left-tools"><label class="attach-button" for="imageInput" title="Đính kèm ảnh infographic"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB</span></div>
-            <div id="proofRow" class="proof-row" data-state="loading" aria-live="polite"><div id="turnstileBox" class="turnstile-box"></div><span class="verification-badge"><span aria-hidden="true">✓</span>Đã xác minh</span><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
+            <button id="openVerification" class="verification-trigger" type="button"><span aria-hidden="true">✓</span><span id="verificationTriggerLabel">Xác minh</span></button>
             <button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>Gửi</button>
           </div>
         </div>

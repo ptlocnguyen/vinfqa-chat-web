@@ -7,7 +7,7 @@ const TURNSTILE_LOAD_TIMEOUT_MS = 15_000;
 const HEALTH_RETRY_DELAYS_MS = [3_000,10_000,30_000];
 const MAX_SESSIONS = 10;
 const state = {
-  sessions: [], active: null, busy: false, turnstileToken: '', widgetId: null,
+  sessions: [], active: null, busy: false, turnstileToken: '', widgetId: null, verificationRequested: false,
   configured: /^https:\/\//.test(cfg.API_BASE_URL || '') && Boolean(cfg.TURNSTILE_SITE_KEY), serviceReady: false,
   healthAttempt: 0, healthTimer: null, turnstileStartedAt: 0, turnstileTimer: null,
 };
@@ -17,6 +17,7 @@ const refs = {
   imageChip: $('#imageChip'), preview: $('#previewImage'), imageName: $('#imageName'),
   imageMeta: $('#imageMeta'), error: $('#errorNotice'), send: $('#sendButton'),
   turnstile: $('#turnstileBox'), proof: $('#proofRow'), status: $('#serviceStatus'), refreshCaptcha: $('#refreshCaptcha'),
+  verifyTrigger: $('#openVerification'), verifyTriggerLabel: $('#verificationTriggerLabel'), verificationShield: $('#verificationShield'),
   sidebarBackdrop: $('#sidebarBackdrop'), openSidebar: $('#openSidebar'), closeSidebar: $('#closeSidebar'),
 };
 
@@ -127,9 +128,16 @@ async function chooseFile(file) {
 }
 function resetChallenge() {
   state.turnstileToken = '';
-  refs.proof.dataset.state = 'loading';
+  setProofState('loading');
   if (window.turnstile && state.widgetId !== null) window.turnstile.reset(state.widgetId);
   updateSendState();
+}
+function setProofState(value) {
+  refs.proof.dataset.state = value;
+  refs.verifyTrigger.hidden = value === 'verified' || !state.configured;
+  refs.verifyTriggerLabel.textContent = value === 'error' ? 'Thử lại' : 'Xác minh';
+  refs.verificationShield.textContent = value === 'verified' ? '✓' : '◇';
+  refs.verifyTrigger.dataset.state = value;
 }
 function retryLabel(value) {
   const seconds = Number(value);
@@ -205,6 +213,7 @@ function renderTurnstileWidget() {
   clearTimeout(state.turnstileTimer);
   if (!window.turnstile) {
     if (Date.now()-state.turnstileStartedAt >= TURNSTILE_LOAD_TIMEOUT_MS) {
+      setProofState('error');
       refs.refreshCaptcha.hidden = false;
       showError('Không tải được xác minh Turnstile. Kiểm tra kết nối hoặc trình chặn nội dung rồi thử lại.');
       return;
@@ -215,12 +224,19 @@ function renderTurnstileWidget() {
     state.widgetId = window.turnstile.render(refs.turnstile, {
       sitekey: cfg.TURNSTILE_SITE_KEY,
       theme: root.classList.contains('theme-light') ? 'light' : 'dark',
+      size: 'compact',
       action: 'vinfqa_infer',
-      callback: (token) => { state.turnstileToken = token; refs.proof.dataset.state = 'verified'; updateSendState(); },
-      'expired-callback': () => {state.turnstileToken = ''; refs.proof.dataset.state = 'loading'; updateSendState();},
-      'error-callback': () => {state.turnstileToken = ''; refs.proof.dataset.state = 'error'; refs.refreshCaptcha.hidden=false; updateSendState();},
+      callback: (token) => {
+        state.turnstileToken = token; setProofState('verified'); updateSendState();
+        if (state.verificationRequested && matchMedia('(max-width: 1024px)').matches) {
+          closeSidebar(); (refs.send.disabled ? refs.question : refs.send).focus();
+        }
+        state.verificationRequested = false;
+      },
+      'expired-callback': () => {state.turnstileToken = ''; setProofState('loading'); updateSendState();},
+      'error-callback': () => {state.turnstileToken = ''; setProofState('error'); refs.refreshCaptcha.hidden=false; updateSendState();},
     });
-  } catch { refs.refreshCaptcha.hidden = false; }
+  } catch { setProofState('error'); refs.refreshCaptcha.hidden = false; }
 }
 function rerenderTurnstile() {
   state.turnstileToken = '';
@@ -228,11 +244,11 @@ function rerenderTurnstile() {
   if (window.turnstile && state.widgetId !== null) {
     try { window.turnstile.remove(state.widgetId); } catch {}
   }
-  state.widgetId = null; state.turnstileStartedAt = Date.now(); refs.proof.dataset.state = 'loading'; refs.refreshCaptcha.hidden = true;
+  state.widgetId = null; state.turnstileStartedAt = Date.now(); setProofState('loading'); refs.refreshCaptcha.hidden = true;
   updateSendState(); renderTurnstileWidget();
 }
 function initTurnstile() {
-  if (!state.configured) { refs.status.classList.add('paused'); refs.status.lastChild.textContent = ' Chế độ xem trước'; return; }
+  if (!state.configured) { setProofState('unavailable'); refs.status.classList.add('paused'); refs.status.lastChild.textContent = ' Chế độ xem trước'; return; }
   rerenderTurnstile(); void checkService(true);
 }
 refs.question.addEventListener('input',()=>{resizeInput();updateSendState();});
@@ -245,6 +261,13 @@ function closeSidebar(restoreFocus = false){refs.sidebar.classList.remove('open'
 refs.openSidebar.onclick=()=>{refs.sidebar.classList.add('open');refs.sidebarBackdrop.hidden=false;refs.closeSidebar.focus();};
 refs.closeSidebar.onclick=()=>closeSidebar(true);
 refs.sidebarBackdrop.onclick=()=>closeSidebar(true);
+refs.verifyTrigger.onclick=()=>{
+  state.verificationRequested = true;
+  refs.sidebar.classList.add('open'); refs.sidebarBackdrop.hidden = false;
+  refs.proof.scrollIntoView({block:'center',behavior:'smooth'});
+  refs.proof.focus({preventScroll:true});
+  if (refs.proof.dataset.state === 'error') rerenderTurnstile();
+};
 $('#themeToggle').onclick=()=>{root.classList.toggle('theme-light');$('#themeToggle').textContent=root.classList.contains('theme-light')?'☾':'☀';if(state.configured)rerenderTurnstile();};
 $('#aboutToggle').onclick=()=>$('#aboutDialog').showModal();
 $('#closeAbout').onclick=()=>$('#aboutDialog').close();
