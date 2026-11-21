@@ -1,20 +1,44 @@
 # VietInfographicQA Chat — GitHub Pages
 
-Giao diện chat công khai cho demo **S3-QLoRA SSRC v04**. Mã frontend là HTML/CSS/JavaScript thuần, không chứa checkpoint hoặc token Hugging Face.
+Frontend công khai cho demo S3-QLoRA SSRC v04. Dự án dùng HTML/CSS/JavaScript thuần, không có build step, package npm, checkpoint hoặc Hugging Face token.
 
-## Trạng thái triển khai
+## Cấu trúc
 
-- **Frontend:** đã upload lên branch `main`; cần bật GitHub Pages trong **Settings → Pages → Deploy from a branch → main / (root)**.
-- **AI inference:** **chưa bật**. `config.js` cố ý để trống `API_BASE_URL` và `TURNSTILE_SITE_KEY`. Website chỉ hoạt động ở chế độ xem trước cho đến khi Cloudflare Worker + Turnstile được cấu hình và kiểm thử.
-- **Backend:** Space riêng tư `ptlocnguyen/s3-qlora-v04-demo` được giữ nguyên, không có trọng số trong repo này.
+- `index.html`: giao diện, thông báo dữ liệu, Turnstile và Content Security Policy.
+- `config.js`: chỉ chứa Worker URL và Turnstile site key công khai.
+- `assets/app.js`: chat trong bộ nhớ tab, kiểm ảnh, `/health`, Turnstile và `/infer`.
+- `assets/quota.js`: đọc quota tài khoản demo qua `/quota` mỗi 120 giây.
+- `assets/styles.css`: responsive, dark/light theme và trạng thái quota.
 
-Website dự kiến: https://ptlocnguyen.github.io/vinfqa-chat-web/
+## Trạng thái source hiện tại
 
-## Kết nối inference (giai đoạn sau)
+`config.js` đang trỏ tới `https://vinfqa-public-gateway.ptlocnguyen.workers.dev` và có Turnstile site key cho `ptlocnguyen.github.io`. Đây không phải bằng chứng rằng bản GitHub Pages hoặc Worker đang chạy đúng version mới nhất; cần kiểm tra sau khi deploy.
 
-1. Tạo Cloudflare Worker, Turnstile và secret đọc private Space **riêng**; không đưa token vào repo.
-2. Xác nhận endpoint Gradio thực tế của Space, quyền truy cập, kiểm tra giới hạn lượt/ngày và kiểm tra chống lạm dụng.
-3. Sau khi gateway PASS, chỉ cấu hình hai giá trị **công khai** trong `config.js`: Worker URL và Turnstile site key. Không đặt Hugging Face token hay Turnstile secret trong frontend.
-4. Kiểm thử bốn đường suy luận trước khi bật chế độ công khai.
+Luồng inference: trình duyệt gửi ảnh, câu hỏi và token Turnstile tới Cloudflare Worker. Worker xác minh và chuyển request tới private Hugging Face Space. Lịch sử chat không được gửi làm prompt; ảnh và câu hỏi vẫn đi qua Cloudflare/Hugging Face và có thể được Space lưu tạm. Không tải dữ liệu cá nhân hoặc nhạy cảm.
 
-**Giới hạn khoa học:** Mỗi tin nhắn là một lần suy luận độc lập với ảnh đã đính kèm. UI hiển thị lịch sử nhưng không gửi lịch sử hội thoại vào prompt. Giữ nguyên `max_new_tokens=32` và cảnh báo cắt đầu ra của S3 v04.
+## Chạy kiểm tra tĩnh cục bộ
+
+Không mở file trực tiếp bằng `file://` vì ES module/CSP có thể hoạt động khác HTTP. Có thể phục vụ thư mục bằng static server bất kỳ, sau đó kiểm tra desktop/mobile. Khi chạy trên localhost, hostname Turnstile và CORS production sẽ không hợp lệ nếu chưa có cấu hình dev riêng; không hạ kiểm tra production chỉ để test local.
+
+Kiểm tra cú pháp không gọi network hoặc inference:
+
+```powershell
+node --check .\assets\app.js
+node --check .\assets\quota.js
+```
+
+## Deploy GitHub Pages
+
+1. Review diff và xác nhận `config.js` chỉ có giá trị công khai.
+2. Nếu đổi Worker URL, cập nhật cả `API_BASE_URL` và directive `connect-src` trong CSP ở `index.html`.
+3. Push commit đã duyệt lên branch dùng cho Pages; không đưa Secrets vào repository.
+4. Trong GitHub: **Settings → Pages → Deploy from a branch → main / (root)**.
+5. Sau khi Pages hoàn tất, hard refresh và kiểm tra `/health`, Turnstile, quota, responsive và một smoke inference duy nhất nếu chấp nhận dùng ZeroGPU.
+
+## Giới hạn khoa học và vận hành
+
+- Mỗi câu hỏi là một inference độc lập với ảnh hiện tại.
+- UI giới hạn ảnh 8 MiB, 12 megapixel và câu hỏi 1.000 ký tự; gateway kiểm lại phía server.
+- Client dừng chờ sau 4 phút; gateway có các timeout upstream riêng và lease tối đa 300 giây.
+- Output model được giới hạn 32 token và có thể bị cắt.
+- Thanh ZeroGPU hiển thị quota của tài khoản demo, không phải hạn mức riêng của từng khách truy cập.

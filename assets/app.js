@@ -1,9 +1,15 @@
 const cfg = window.VINFQA_PUBLIC_CONFIG || {};
 const $ = (selector) => document.querySelector(selector);
 const root = document.documentElement;
+const INFERENCE_TIMEOUT_MS = 240_000;
+const HEALTH_TIMEOUT_MS = 10_000;
+const TURNSTILE_LOAD_TIMEOUT_MS = 15_000;
+const HEALTH_RETRY_DELAYS_MS = [3_000,10_000,30_000];
+const MAX_SESSIONS = 10;
 const state = {
   sessions: [], active: null, busy: false, turnstileToken: '', widgetId: null,
   configured: /^https:\/\//.test(cfg.API_BASE_URL || '') && Boolean(cfg.TURNSTILE_SITE_KEY), serviceReady: false,
+  healthAttempt: 0, healthTimer: null, turnstileStartedAt: 0, turnstileTimer: null,
 };
 const refs = {
   sidebar: $('#sidebar'), chatList: $('#chatList'), empty: $('#emptyState'),
@@ -11,6 +17,7 @@ const refs = {
   imageChip: $('#imageChip'), preview: $('#previewImage'), imageName: $('#imageName'),
   imageMeta: $('#imageMeta'), error: $('#errorNotice'), send: $('#sendButton'),
   turnstile: $('#turnstileBox'), status: $('#serviceStatus'), refreshCaptcha: $('#refreshCaptcha'),
+  sidebarBackdrop: $('#sidebarBackdrop'), openSidebar: $('#openSidebar'), closeSidebar: $('#closeSidebar'),
 };
 
 const htmlElement = (tag, cls, text) => {
@@ -27,6 +34,10 @@ function showError(message = '') {
 function addSession() {
   const session = { id: crypto.randomUUID(), title: 'Cuộc trò chuyện mới', messages: [], file: null, url: '' };
   state.sessions.unshift(session);
+  while (state.sessions.length > MAX_SESSIONS) {
+    const removed = state.sessions.pop();
+    if (removed?.url) URL.revokeObjectURL(removed.url);
+  }
   state.active = session.id;
   render();
 }
@@ -36,7 +47,7 @@ function renderSidebar() {
     const item = htmlElement('button', 'chat-item' + (state.active === session.id ? ' active' : ''));
     item.type = 'button'; item.setAttribute('aria-current', state.active === session.id ? 'page' : 'false');
     item.append(htmlElement('span', 'chat-icon', '▤'), htmlElement('span', '', session.title));
-    item.onclick = () => { if (!state.busy) { state.active = session.id; refs.sidebar.classList.remove('open'); render(); } };
+    item.onclick = () => { if (!state.busy) { state.active = session.id; closeSidebar(); render(); } };
     refs.chatList.append(item);
   }
 }
@@ -119,6 +130,12 @@ function resetChallenge() {
   if (window.turnstile && state.widgetId !== null) window.turnstile.reset(state.widgetId);
   updateSendState();
 }
+function retryLabel(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return '';
+  if (seconds < 60) return ` Có thể thử lại sau khoảng ${Math.ceil(seconds)} giây.`;
+  return ` Có thể thử lại sau khoảng ${Math.ceil(seconds/60)} phút.`;
+}
 async function send() {
   const session = current(); const question = refs.question.value.trim();
   if (!state.configured || state.busy || !session.file || !question || !state.turnstileToken) return;
@@ -133,16 +150,24 @@ async function send() {
     body.append('image', session.file, session.file.name);
     body.append('question', question);
     body.append('turnstile', token);
-    const response = await fetch(cfg.API_BASE_URL.replace(/\/$/,'') + '/infer', { method: 'POST', body });
+    const response = await fetch(cfg.API_BASE_URL.replace(/\/$/,'') + '/infer', {
+      method: 'POST', body, signal: AbortSignal.timeout(INFERENCE_TIMEOUT_MS),
+    });
     let payload;
     try { payload = await response.json(); } catch { throw Error('Gateway trả về dữ liệu không hợp lệ.'); }
-    if (!response.ok) throw Error(payload.message || `Gateway từ chối (${response.status}).`);
+    if (!response.ok) {
+      const suffix = response.status === 429 ? retryLabel(response.headers.get('Retry-After')) : '';
+      throw Error((payload.message || `Gateway từ chối (${response.status}).`) + suffix);
+    }
     if (payload.status !== 'INFERENCE_COMPLETED') throw Error('Backend không hoàn thành lượt suy luận.');
     assistant.text = typeof payload.answer === 'string' ? payload.answer : '';
     assistant.meta = payload.provenance || null;
   } catch (error) {
-    assistant.text = 'Không thể hoàn thành lượt suy luận. ' + (error.message || 'Vui lòng thử lại sau.');
-    showError(error.message || 'Lỗi kết nối.');
+    const message = error?.name === 'TimeoutError'
+      ? 'Lượt suy luận vượt quá 4 phút. Gateway có thể vẫn đang kết thúc tác vụ; vui lòng chờ rồi thử lại với CAPTCHA mới.'
+      : (error.message || 'Lỗi kết nối.');
+    assistant.text = 'Không thể hoàn thành lượt suy luận. ' + message;
+    showError(message);
   } finally {
     assistant.loading = false; state.busy = false; resetChallenge();
     window.dispatchEvent(new CustomEvent('vinfqa:inference-finished'));
@@ -150,46 +175,86 @@ async function send() {
   }
 }
 function resizeInput() { refs.question.style.height = 'auto'; refs.question.style.height = Math.min(refs.question.scrollHeight,160)+'px'; }
+function setServiceState(ready, label) {
+  state.serviceReady = ready; updateSendState(); refs.status.classList.toggle('ready',ready);
+  refs.status.classList.toggle('paused',!ready); refs.status.lastChild.textContent = label;
+}
+function scheduleHealthRetry() {
+  if (state.healthAttempt >= HEALTH_RETRY_DELAYS_MS.length || document.hidden) return;
+  clearTimeout(state.healthTimer);
+  const delay = HEALTH_RETRY_DELAYS_MS[state.healthAttempt++];
+  state.healthTimer = setTimeout(()=>void checkService(),delay);
+}
+async function checkService(resetAttempts = false) {
+  if (resetAttempts) state.healthAttempt = 0;
+  clearTimeout(state.healthTimer);
+  try {
+    const response = await fetch(cfg.API_BASE_URL.replace(/\/$/,'')+'/health', {
+      cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+    });
+    const data = await response.json();
+    const ready = response.ok && data.status === 'ready';
+    setServiceState(ready,ready ? ' Gateway sẵn sàng' : ' Đang khóa inference');
+    if (!ready) scheduleHealthRetry();
+  } catch {
+    setServiceState(false,' Gateway chưa sẵn sàng'); scheduleHealthRetry();
+  }
+}
+function renderTurnstileWidget() {
+  clearTimeout(state.turnstileTimer);
+  if (!window.turnstile) {
+    if (Date.now()-state.turnstileStartedAt >= TURNSTILE_LOAD_TIMEOUT_MS) {
+      refs.refreshCaptcha.hidden = false;
+      showError('Không tải được xác minh Turnstile. Kiểm tra kết nối hoặc trình chặn nội dung rồi thử lại.');
+      return;
+    }
+    state.turnstileTimer = setTimeout(renderTurnstileWidget,350); return;
+  }
+  try {
+    state.widgetId = window.turnstile.render(refs.turnstile, {
+      sitekey: cfg.TURNSTILE_SITE_KEY,
+      theme: root.classList.contains('theme-light') ? 'light' : 'dark',
+      action: 'vinfqa_infer',
+      callback: (token) => { state.turnstileToken = token; updateSendState(); },
+      'expired-callback': () => {state.turnstileToken = ''; updateSendState();},
+      'error-callback': () => {state.turnstileToken = ''; refs.refreshCaptcha.hidden=false; updateSendState();},
+    });
+  } catch { refs.refreshCaptcha.hidden = false; }
+}
+function rerenderTurnstile() {
+  state.turnstileToken = '';
+  clearTimeout(state.turnstileTimer);
+  if (window.turnstile && state.widgetId !== null) {
+    try { window.turnstile.remove(state.widgetId); } catch {}
+  }
+  state.widgetId = null; state.turnstileStartedAt = Date.now(); refs.refreshCaptcha.hidden = true;
+  updateSendState(); renderTurnstileWidget();
+}
 function initTurnstile() {
   if (!state.configured) { refs.status.classList.add('paused'); refs.status.lastChild.textContent = ' Chế độ xem trước'; return; }
-  const renderWidget = () => {
-    if (!window.turnstile) { setTimeout(renderWidget,350); return; }
-    try {
-      state.widgetId = window.turnstile.render(refs.turnstile, {
-        sitekey: cfg.TURNSTILE_SITE_KEY,
-        theme: root.classList.contains('theme-light') ? 'light' : 'dark',
-        action: 'vinfqa_infer',
-        callback: (token) => { state.turnstileToken = token; updateSendState(); },
-        'expired-callback': () => {state.turnstileToken = ''; updateSendState();},
-        'error-callback': () => {state.turnstileToken = ''; refs.refreshCaptcha.hidden=false; updateSendState();},
-      });
-    } catch { refs.refreshCaptcha.hidden = false; }
-  };
-  renderWidget();
-  fetch(cfg.API_BASE_URL.replace(/\/$/,'')+'/health').then((r)=>r.json()).then((x)=>{
-    const ready = x.status === 'ready'; state.serviceReady = ready; updateSendState(); refs.status.classList.toggle('ready',ready);
-    refs.status.classList.toggle('paused',!ready);
-    refs.status.lastChild.textContent = ready ? ' Gateway sẵn sàng' : ' Đang khóa inference';
-  }).catch(()=>{state.serviceReady=false; updateSendState(); refs.status.classList.add('paused');refs.status.lastChild.textContent=' Gateway chưa sẵn sàng';});
+  rerenderTurnstile(); void checkService(true);
 }
 refs.question.addEventListener('input',()=>{resizeInput();updateSendState();});
 refs.question.addEventListener('keydown',(event)=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void send();}});
 refs.send.addEventListener('click',()=>void send());
 refs.imageInput.addEventListener('change',(e)=>void chooseFile(e.target.files?.[0]));
 $('#removeImage').onclick=()=>{const s=current();if(s.url){URL.revokeObjectURL(s.url);}s.file=null;s.url='';refs.imageInput.value='';syncImageChip();updateSendState();};
-$('#newChat').onclick=()=>{if(!state.busy){addSession();refs.question.value='';resizeInput();showError();refs.sidebar.classList.remove('open');}};
-$('#openSidebar').onclick=()=>refs.sidebar.classList.toggle('open');
-$('#closeSidebar').onclick=()=>refs.sidebar.classList.remove('open');
-$('#themeToggle').onclick=()=>{root.classList.toggle('theme-light');$('#themeToggle').textContent=root.classList.contains('theme-light')?'☾':'☀';};
+$('#newChat').onclick=()=>{if(!state.busy){addSession();refs.question.value='';resizeInput();showError();closeSidebar();}};
+function closeSidebar(restoreFocus = false){refs.sidebar.classList.remove('open');refs.sidebarBackdrop.hidden=true;if(restoreFocus)refs.openSidebar.focus();}
+refs.openSidebar.onclick=()=>{refs.sidebar.classList.add('open');refs.sidebarBackdrop.hidden=false;refs.closeSidebar.focus();};
+refs.closeSidebar.onclick=()=>closeSidebar(true);
+refs.sidebarBackdrop.onclick=()=>closeSidebar(true);
+$('#themeToggle').onclick=()=>{root.classList.toggle('theme-light');$('#themeToggle').textContent=root.classList.contains('theme-light')?'☾':'☀';if(state.configured)rerenderTurnstile();};
 $('#aboutToggle').onclick=()=>$('#aboutDialog').showModal();
 $('#closeAbout').onclick=()=>$('#aboutDialog').close();
 $('#understood').onclick=()=>$('#aboutDialog').close();
-refs.refreshCaptcha.onclick=()=>{refs.refreshCaptcha.hidden=true;resetChallenge();};
+refs.refreshCaptcha.onclick=()=>{showError();rerenderTurnstile();};
 $('#examples').addEventListener('click',(event)=>{
   const button=event.target.closest('[data-prompt]');if(button){refs.question.value=button.dataset.prompt;resizeInput();updateSendState();refs.question.focus();}
 });
-window.addEventListener('keydown',(event)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();if(!state.busy) addSession();}});
+window.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&refs.sidebar.classList.contains('open'))closeSidebar(true);if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();if(!state.busy) addSession();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.configured)void checkService(true);});
 for(const type of ['dragenter','dragover']) $('#composer').addEventListener(type,(e)=>{e.preventDefault();});
 $('#composer').addEventListener('drop',(e)=>{e.preventDefault();if(!state.busy)void chooseFile(e.dataTransfer.files?.[0]);});
 addSession();initTurnstile();
-if(!state.configured) showError('Đây là bản giao diện xem trước. Quản trị viên cần cấu hình site/config.js và Cloudflare Worker trước khi mở suy luận công khai.');
+if(!state.configured) showError('Đây là bản giao diện xem trước. Quản trị viên cần cấu hình config.js và Cloudflare Worker trước khi mở suy luận công khai.');

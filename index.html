@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; connect-src 'self' https://vinfqa-public-gateway.ptlocnguyen.workers.dev https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests" />
+  <meta name="referrer" content="no-referrer" />
   <meta name="theme-color" content="#0e1117" />
   <meta name="description" content="VietInfographicQA: hỏi đáp trên infographic tiếng Việt bằng S3-QLoRA SSRC v04." />
   <title>VietInfographicQA · S3-QLoRA Chat</title>
@@ -25,6 +27,7 @@
         <a href="https://huggingface.co/spaces/ptlocnguyen/s3-qlora-v04-demo" target="_blank" rel="noopener noreferrer">Space gốc <span aria-hidden="true">↗</span></a>
       </div>
     </aside>
+    <div id="sidebarBackdrop" class="sidebar-backdrop" hidden aria-hidden="true"></div>
 
     <main class="main-column">
       <header class="topbar">
