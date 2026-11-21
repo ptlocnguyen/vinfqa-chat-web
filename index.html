@@ -21,7 +21,7 @@
       <nav id="chatList" class="chat-list" aria-label="Các phiên chat"></nav>
       <div class="sidebar-bottom">
         <div class="mini-info"><span class="pulse-dot"></span><div><strong>S3-QLoRA v04</strong><small>Qwen3-VL-4B · 4 nhánh</small></div></div>
-        <p>Phiên chat và ảnh chỉ được giữ trong bộ nhớ tab. Không lưu lịch sử lên máy chủ frontend.</p>
+        <p>Lịch sử hội thoại chỉ ở trong tab. Khi bấm Gửi, ảnh và câu hỏi được chuyển qua Cloudflare Worker tới Hugging Face Space để suy luận và có thể được lưu tạm ở phía Space. Không gửi dữ liệu nhạy cảm.</p>
         <a href="https://huggingface.co/spaces/ptlocnguyen/s3-qlora-v04-demo" target="_blank" rel="noopener noreferrer">Space gốc <span aria-hidden="true">↗</span></a>
       </div>
     </aside>
@@ -59,7 +59,7 @@
           <div class="composer-bottom"><div class="left-tools"><label class="attach-button" for="imageInput" title="Đính kèm ảnh infographic"><span aria-hidden="true">＋</span><span>Ảnh infographic</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG · JPG · WebP</span></div><button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>↑</button></div>
         </div>
         <div class="proof-row"><div id="turnstileBox" class="turnstile-box"></div><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
-        <p class="composer-footnote">Mỗi câu hỏi là một lượt suy luận độc lập trên cùng ảnh · Tối đa 32 token · Không phải kết quả benchmark.</p>
+        <p class="composer-footnote">Demo nghiên cứu: không gửi ảnh hoặc dữ liệu cá nhân/nhạy cảm · Ảnh và câu hỏi được xử lý qua Cloudflare/Hugging Face · Mỗi câu hỏi độc lập · Tối đa 32 token.</p>
       </div>
     </main>
   </div>
