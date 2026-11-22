@@ -1,4 +1,4 @@
-import {accountLabel, authConfigured, getSession, signOut} from './supabase-auth.js';
+import {accountLabel, authConfigured, fetchPrivateImage, getSession, signOut} from './supabase-auth.js';
 
 const cfg = window.VINFQA_PUBLIC_CONFIG || {};
 const $ = (selector) => document.querySelector(selector);
@@ -23,6 +23,7 @@ const refs = {
   verifyTrigger: $('#openVerification'), verifyTriggerLabel: $('#verificationTriggerLabel'), verificationShield: $('#verificationShield'),
   sidebarBackdrop: $('#sidebarBackdrop'), openSidebar: $('#openSidebar'), closeSidebar: $('#closeSidebar'),
   accountLink: $('#accountLink'), accountLabel: $('#accountLabel'), sidebarLogin: $('#sidebarLogin'), sidebarRegister: $('#sidebarRegister'),
+  saveImageOption: $('#saveImageOption'), saveImage: $('#saveImage'),
 };
 
 const htmlElement = (tag, cls, text) => {
@@ -47,9 +48,28 @@ function updateAccountUI() {
   refs.sidebarLogin.href = loggedIn ? '#account' : './login.html';
   refs.sidebarRegister.textContent = loggedIn ? 'Đăng xuất' : 'Đăng ký';
   refs.sidebarRegister.href = loggedIn ? '#logout' : './register.html';
+  refs.saveImageOption.hidden = !loggedIn;
+  if (!loggedIn) refs.saveImage.checked = false;
 }
-function releaseSessionImages() {
-  for (const session of state.sessions) if (session.url) URL.revokeObjectURL(session.url);
+function releaseSessionImages(sessions = state.sessions) {
+  for (const session of sessions) {
+    if (session.url) URL.revokeObjectURL(session.url);
+    for (const message of session.messages || []) {
+      if (message.imageObjectUrl && message.imageURL) URL.revokeObjectURL(message.imageURL);
+    }
+  }
+}
+async function hydratePrivateImages(sessions) {
+  if (!state.authSession) return;
+  const authSession = state.authSession;
+  const messages = sessions.flatMap((session) => session.messages).filter((message) => message.attachmentPath).slice(0,30);
+  await Promise.allSettled(messages.map(async (message) => {
+    const blob = await fetchPrivateImage(message.attachmentPath,authSession);
+    if (sessions !== state.sessions || state.authSession?.access_token !== authSession.access_token) return;
+    message.imageURL = URL.createObjectURL(blob);
+    message.imageObjectUrl = true;
+  }));
+  if (sessions === state.sessions) render();
 }
 async function logoutAccount() {
   if (!state.authSession || !confirm('Đăng xuất và xóa lịch sử đang hiển thị khỏi tab này?')) return;
@@ -70,16 +90,21 @@ async function loadRemoteHistory() {
     }
     const payload = await response.json();
     if (!response.ok || !Array.isArray(payload.conversations)) throw Error(payload.message || 'Chưa tải được lịch sử.');
-    state.sessions = payload.conversations.map((conversation) => ({
+    const previousSessions = state.sessions;
+    const remoteSessions = payload.conversations.map((conversation) => ({
       id:conversation.id,
       title:conversation.title || 'Cuộc trò chuyện mới',
       messages:Array.isArray(conversation.messages) ? conversation.messages.map((message) => ({
         id:message.id, role:message.role, text:message.content,
         meta:message.role === 'assistant' && message.metadata && typeof message.metadata === 'object' ? message.metadata : null,
+        attachmentPath:message.role === 'user' && typeof message.attachment_path === 'string' ? message.attachment_path : '',
       })) : [],
       file:null,url:'',
     }));
+    releaseSessionImages(previousSessions);
+    state.sessions = remoteSessions;
     state.active = state.sessions[0]?.id || null;
+    void hydratePrivateImages(remoteSessions);
     return state.sessions.length > 0;
   } catch (error) {
     showError(error?.name === 'TimeoutError' ? 'Tải lịch sử tài khoản quá thời gian.' : (error.message || 'Chưa tải được lịch sử tài khoản.'));
@@ -91,7 +116,7 @@ function addSession() {
   state.sessions.unshift(session);
   while (state.sessions.length > MAX_SESSIONS) {
     const removed = state.sessions.pop();
-    if (removed?.url) URL.revokeObjectURL(removed.url);
+    if (removed) releaseSessionImages([removed]);
   }
   state.active = session.id;
   render();
@@ -208,10 +233,14 @@ async function send() {
     updateAccountUI();
     sessionExpired = !state.authSession;
   }
+  const saveImageRequested = Boolean(state.authSession && refs.saveImage.checked);
   showError(sessionExpired ? 'Phiên đăng nhập đã hết hạn. Lượt này sẽ không được đồng bộ vào tài khoản.' : '');
   state.busy = true; updateSendState();
   if (!session.messages.length) session.title = question.length > 37 ? question.slice(0,37) + '…' : question;
-  const userMessage = { id: crypto.randomUUID(), role: 'user', text: question, imageURL: session.url };
+  const userMessage = {
+    id:crypto.randomUUID(), role:'user', text:question,
+    imageURL:URL.createObjectURL(session.file), imageObjectUrl:true,
+  };
   session.messages.push(userMessage);
   const assistant = {id: crypto.randomUUID(), role: 'assistant', text: '', loading: true};
   session.messages.push(assistant); refs.question.value = ''; resizeInput(); render();
@@ -226,6 +255,7 @@ async function send() {
       body.append('conversation_title',session.title);
       body.append('user_message_id',userMessage.id);
       body.append('assistant_message_id',assistant.id);
+      if (saveImageRequested) body.append('save_image','true');
     }
     const response = await fetch(cfg.API_BASE_URL.replace(/\/$/,'') + '/infer', {
       method: 'POST', body,
@@ -243,6 +273,8 @@ async function send() {
     assistant.meta = payload.provenance || null;
     if (state.authSession && payload.history_saved === false)
       showError('Đã nhận câu trả lời nhưng chưa đồng bộ được lượt chat vào tài khoản.');
+    else if (saveImageRequested && payload.image_saved === false)
+      showError('Đã đồng bộ câu hỏi và câu trả lời, nhưng ảnh chưa được lưu vào lịch sử.');
   } catch (error) {
     const message = error?.name === 'TimeoutError'
       ? 'Lượt suy luận vượt quá 4 phút. Gateway có thể vẫn đang kết thúc tác vụ; vui lòng chờ rồi thử lại với CAPTCHA mới.'

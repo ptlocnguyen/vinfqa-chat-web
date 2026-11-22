@@ -633,6 +633,26 @@ img { max-width: 100%; }
 .attach-button span:first-child { font-size: 20px; font-weight: 300; line-height: 1; }
 .input-hint { overflow: hidden; color: var(--soft); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
+.save-image-option {
+  display: inline-flex;
+  min-height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 1px solid var(--stroke);
+  border-radius: 9px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.save-image-option[hidden] { display: none; }
+.save-image-option:hover { border-color: #55836f; color: var(--text); }
+.save-image-option input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); }
+
 .send-btn {
   min-width: 70px;
   min-height: 40px;
@@ -903,6 +923,7 @@ img { max-width: 100%; }
   .composer-bottom { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
   .left-tools { gap: 7px; }
   .input-hint { display: none; }
+  .save-image-option { padding-inline: 8px; }
   .send-btn { min-width: 64px; }
   .composer-footnote { padding: 0 8px; font-size: 11px; }
 }
