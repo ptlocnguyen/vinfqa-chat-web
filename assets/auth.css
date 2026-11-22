@@ -79,7 +79,18 @@ a { text-decoration: none; }
 
 .auth-panel { display: grid; min-height: 100dvh; place-items: center; padding: 32px; background: #0c131c; }
 .auth-card { width: min(440px, 100%); padding: 36px; border: 1px solid var(--stroke); border-radius: 24px; background: var(--panel); box-shadow: var(--shadow); }
-.register-card { padding-block: 30px; }
+.register-card { width: min(580px, 100%); padding: 24px 28px; }
+.register-card .auth-card-header { margin-bottom: 16px; }
+.register-card .auth-card-header h2 { font-size: 30px; }
+.register-card form { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.register-card .field { min-width: 0; align-self: start; gap: 5px; }
+.register-card .field input { min-height: 44px; }
+.register-card .consent,
+.register-card form > .field-error,
+.register-card .primary-button { grid-column: 1 / -1; }
+.register-card .primary-button { min-height: 44px; }
+.register-card .auth-switch { margin-top: 14px; }
+.register-card .auth-disclaimer { margin-top: 12px; padding-top: 12px; line-height: 1.45; }
 .auth-card-header { margin-bottom: 26px; }
 .mobile-mark { display: none; margin-bottom: 20px; }
 .auth-card-header h2 { margin: 0; font-size: 34px; letter-spacing: -1.2px; line-height: 1.2; }
@@ -136,6 +147,29 @@ form { display: grid; gap: 18px; }
   .auth-card-header { margin-bottom: 22px; }
   .auth-card-header h2 { font-size: 30px; }
   .form-options { align-items: flex-start; flex-direction: column; }
+
+  .register-card { width: 100%; margin: 0; padding: 18px 14px; }
+  .register-card .auth-card-header { margin-bottom: 12px; }
+  .register-card .auth-card-header h2 { font-size: 27px; }
+  .register-card form { gap: 9px 8px; }
+  .register-card .field input { min-height: 42px; padding-inline: 9px; font-size: 14px; }
+  .register-card .field:nth-child(3) .password-toggle { font-size: 0; }
+  .register-card .field:nth-child(3) .password-toggle::after { content: "Hiện"; font-size: 12px; }
+  .register-card .field:nth-child(3) .password-toggle[aria-pressed="true"]::after { content: "Ẩn"; }
+  .register-card .consent { font-size: 12px; line-height: 1.4; }
+  .register-card .auth-switch { margin-top: 10px; }
+  .register-card .auth-disclaimer { margin-top: 8px; padding-top: 8px; }
+}
+
+@media (max-width: 920px) and (max-height: 680px) {
+  .register-page .auth-panel { padding-block: 8px; }
+  .register-card .mobile-mark,
+  .register-card .auth-card-header > p:last-child,
+  .register-card .field-hint { display: none; }
+  .register-card .eyebrow { margin-bottom: 6px; }
+  .register-card form { row-gap: 6px; }
+  .register-card .auth-switch { margin-top: 6px; }
+  .register-card .auth-disclaimer { margin-top: 4px; padding-top: 4px; }
 }
 
 @media (max-height: 760px) and (min-width: 921px) {
@@ -143,6 +177,23 @@ form { display: grid; gap: 18px; }
   .intro-copy h1 { font-size: 48px; }
   .feature-list { gap: 8px; margin-top: 18px; }
   .auth-card { padding-block: 24px; }
+}
+
+@media (max-height: 820px) and (min-width: 921px) {
+  .register-page .intro-copy { padding: 28px 0; }
+  .register-page .intro-copy h1 { font-size: 48px; }
+  .register-page .feature-list { gap: 8px; margin-top: 18px; }
+  .register-page .register-card { padding-block: 24px; }
+}
+
+@media (max-height: 680px) and (min-width: 921px) {
+  .register-page .auth-panel { padding: 12px; }
+  .register-page .register-card { padding: 18px 22px; }
+  .register-card .auth-card-header > p:last-child,
+  .register-card .field-hint { display: none; }
+  .register-card form { row-gap: 8px; }
+  .register-card .auth-switch { margin-top: 8px; }
+  .register-card .auth-disclaimer { margin-top: 8px; padding-top: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
