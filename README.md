@@ -16,9 +16,9 @@ Frontend công khai cho demo S3-QLoRA SSRC v04. Dự án dùng HTML/CSS/JavaScri
 
 `config.js` đang trỏ tới `https://vinfqa-public-gateway.ptlocnguyen.workers.dev` và có Turnstile site key cho `ptlocnguyen.github.io`. Đây không phải bằng chứng rằng bản GitHub Pages hoặc Worker đang chạy đúng version mới nhất; cần kiểm tra sau khi deploy.
 
-Luồng inference: trình duyệt gửi ảnh, câu hỏi, token Turnstile và JWT tùy chọn tới Cloudflare Worker. Worker xác minh và chuyển request tới private Hugging Face Space. Khi người dùng đăng nhập, Worker lưu câu hỏi, câu trả lời và provenance vào Supabase sau inference thành công; ảnh không được lưu vào Supabase. Lịch sử chat không được gửi làm prompt; ảnh vẫn đi qua Cloudflare/Hugging Face và có thể được Space lưu tạm. Không tải dữ liệu cá nhân hoặc nhạy cảm.
+Luồng inference: trình duyệt gửi ảnh, câu hỏi, token Turnstile và JWT tùy chọn tới Cloudflare Worker. Worker xác minh và chuyển request tới private Hugging Face Space. Khi người dùng đăng nhập, Worker lưu câu hỏi, câu trả lời và provenance vào Supabase sau inference thành công. Ảnh chỉ được lưu vào bucket private khi người dùng chủ động bật “Lưu ảnh”; mặc định ảnh không được lưu. Lịch sử chat không được gửi làm prompt; ảnh vẫn đi qua Cloudflare/Hugging Face và có thể được Space lưu tạm. Không tải dữ liệu cá nhân hoặc nhạy cảm.
 
-Tài khoản chỉ hoạt động khi `SUPABASE_URL` và `SUPABASE_PUBLISHABLE_KEY` được cấu hình ở cả frontend và Worker. Mặc định session nằm trong `sessionStorage`; tùy chọn “Ghi nhớ thiết bị này” dùng `localStorage`. Mật khẩu được gửi thẳng tới Supabase Auth qua HTTPS, không đi qua Worker hoặc Hugging Face. Supabase RLS giới hạn lịch sử theo `auth.uid()`.
+Tài khoản chỉ hoạt động khi `SUPABASE_URL` và `SUPABASE_PUBLISHABLE_KEY` được cấu hình ở cả frontend và Worker. Mặc định session nằm trong `sessionStorage`; tùy chọn “Ghi nhớ thiết bị này” dùng `localStorage`. Mật khẩu được gửi thẳng tới Supabase Auth qua HTTPS, không đi qua Worker hoặc Hugging Face. Supabase RLS giới hạn lịch sử và ảnh riêng tư theo `auth.uid()`.
 
 ## Chạy kiểm tra tĩnh cục bộ
 

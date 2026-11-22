@@ -12,6 +12,7 @@ export const authConfigured = (() => {
 })();
 
 const endpoint = (path) => cfg.SUPABASE_URL.replace(/\/$/, '') + '/auth/v1' + path;
+const IMAGE_BUCKET = 'vinfqa-chat-images';
 const authHeaders = (token = '') => ({
   'apikey':cfg.SUPABASE_PUBLISHABLE_KEY,
   'Content-Type':'application/json',
@@ -128,6 +129,25 @@ export async function signOut() {
     try { await authRequest('/logout',{method:'POST',body:'{}',token:session.access_token}); } catch {}
   }
   window.dispatchEvent(new CustomEvent('vinfqa:auth-changed',{detail:{session:null}}));
+}
+
+export async function fetchPrivateImage(path, session) {
+  if (!authConfigured || !session?.access_token || !session?.user?.id) throw Error('Phiên tài khoản không hợp lệ.');
+  const expected = new RegExp(`^${session.user.id}/[0-9a-f-]{36}/[0-9a-f-]{36}\\.(?:png|jpg|webp)$`,'i');
+  if (typeof path !== 'string' || !expected.test(path)) throw Error('Đường dẫn ảnh không hợp lệ.');
+  const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+  const response = await fetch(
+    `${cfg.SUPABASE_URL.replace(/\/$/,'')}/storage/v1/object/authenticated/${IMAGE_BUCKET}/${encodedPath}`,
+    {
+      headers:{'apikey':cfg.SUPABASE_PUBLISHABLE_KEY,'Authorization':`Bearer ${session.access_token}`},
+      cache:'no-store', signal:AbortSignal.timeout(20_000),
+    },
+  );
+  if (!response.ok) throw Error(`Không tải được ảnh riêng tư (${response.status}).`);
+  const blob = await response.blob();
+  if (!['image/png','image/jpeg','image/webp'].includes(blob.type) || blob.size < 1 || blob.size > 8*1024*1024)
+    throw Error('Dữ liệu ảnh riêng tư không hợp lệ.');
+  return blob;
 }
 
 export const accountLabel = (session) => {
