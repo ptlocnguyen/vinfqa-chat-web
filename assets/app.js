@@ -1,3 +1,5 @@
+import {accountLabel, authConfigured, getSession, signOut} from './supabase-auth.js';
+
 const cfg = window.VINFQA_PUBLIC_CONFIG || {};
 const $ = (selector) => document.querySelector(selector);
 const root = document.documentElement;
@@ -10,6 +12,7 @@ const state = {
   sessions: [], active: null, busy: false, turnstileToken: '', widgetId: null, verificationRequested: false,
   configured: /^https:\/\//.test(cfg.API_BASE_URL || '') && Boolean(cfg.TURNSTILE_SITE_KEY), serviceReady: false,
   healthAttempt: 0, healthTimer: null, turnstileStartedAt: 0, turnstileTimer: null,
+  authSession: null,
 };
 const refs = {
   sidebar: $('#sidebar'), chatList: $('#chatList'), empty: $('#emptyState'),
@@ -19,6 +22,7 @@ const refs = {
   turnstile: $('#turnstileBox'), proof: $('#proofRow'), status: $('#serviceStatus'), refreshCaptcha: $('#refreshCaptcha'),
   verifyTrigger: $('#openVerification'), verifyTriggerLabel: $('#verificationTriggerLabel'), verificationShield: $('#verificationShield'),
   sidebarBackdrop: $('#sidebarBackdrop'), openSidebar: $('#openSidebar'), closeSidebar: $('#closeSidebar'),
+  accountLink: $('#accountLink'), accountLabel: $('#accountLabel'), sidebarLogin: $('#sidebarLogin'), sidebarRegister: $('#sidebarRegister'),
 };
 
 const htmlElement = (tag, cls, text) => {
@@ -31,6 +35,56 @@ const current = () => state.sessions.find((s) => s.id === state.active);
 function showError(message = '') {
   refs.error.textContent = message;
   refs.error.hidden = !message;
+}
+function updateAccountUI() {
+  const loggedIn = Boolean(state.authSession);
+  const label = loggedIn ? accountLabel(state.authSession) : 'Đăng nhập';
+  refs.accountLabel.textContent = label;
+  refs.accountLink.href = loggedIn ? '#account' : './login.html';
+  refs.accountLink.title = loggedIn ? `${label} · Nhấn để đăng xuất` : 'Đăng nhập';
+  refs.accountLink.setAttribute('aria-label',loggedIn ? `Tài khoản ${label}. Nhấn để đăng xuất` : 'Đăng nhập');
+  refs.sidebarLogin.textContent = loggedIn ? label : 'Đăng nhập';
+  refs.sidebarLogin.href = loggedIn ? '#account' : './login.html';
+  refs.sidebarRegister.textContent = loggedIn ? 'Đăng xuất' : 'Đăng ký';
+  refs.sidebarRegister.href = loggedIn ? '#logout' : './register.html';
+}
+function releaseSessionImages() {
+  for (const session of state.sessions) if (session.url) URL.revokeObjectURL(session.url);
+}
+async function logoutAccount() {
+  if (!state.authSession || !confirm('Đăng xuất và xóa lịch sử đang hiển thị khỏi tab này?')) return;
+  await signOut();
+  releaseSessionImages();
+  state.authSession = null; state.sessions = []; state.active = null;
+  updateAccountUI(); addSession();
+}
+async function loadRemoteHistory() {
+  if (!state.authSession || !state.configured) return false;
+  try {
+    const response = await fetch(cfg.API_BASE_URL.replace(/\/$/,'') + '/history', {
+      headers:{'Authorization':`Bearer ${state.authSession.access_token}`},
+      cache:'no-store', signal:AbortSignal.timeout(15_000),
+    });
+    if (response.status === 401) {
+      await signOut(); state.authSession = null; updateAccountUI(); return false;
+    }
+    const payload = await response.json();
+    if (!response.ok || !Array.isArray(payload.conversations)) throw Error(payload.message || 'Chưa tải được lịch sử.');
+    state.sessions = payload.conversations.map((conversation) => ({
+      id:conversation.id,
+      title:conversation.title || 'Cuộc trò chuyện mới',
+      messages:Array.isArray(conversation.messages) ? conversation.messages.map((message) => ({
+        id:message.id, role:message.role, text:message.content,
+        meta:message.role === 'assistant' && message.metadata && typeof message.metadata === 'object' ? message.metadata : null,
+      })) : [],
+      file:null,url:'',
+    }));
+    state.active = state.sessions[0]?.id || null;
+    return state.sessions.length > 0;
+  } catch (error) {
+    showError(error?.name === 'TimeoutError' ? 'Tải lịch sử tài khoản quá thời gian.' : (error.message || 'Chưa tải được lịch sử tài khoản.'));
+    return false;
+  }
 }
 function addSession() {
   const session = { id: crypto.randomUUID(), title: 'Cuộc trò chuyện mới', messages: [], file: null, url: '' };
@@ -148,9 +202,17 @@ function retryLabel(value) {
 async function send() {
   const session = current(); const question = refs.question.value.trim();
   if (!state.configured || state.busy || !session.file || !question || !state.turnstileToken) return;
-  showError(); state.busy = true; updateSendState();
+  let sessionExpired = false;
+  if (state.authSession) {
+    state.authSession = await getSession();
+    updateAccountUI();
+    sessionExpired = !state.authSession;
+  }
+  showError(sessionExpired ? 'Phiên đăng nhập đã hết hạn. Lượt này sẽ không được đồng bộ vào tài khoản.' : '');
+  state.busy = true; updateSendState();
   if (!session.messages.length) session.title = question.length > 37 ? question.slice(0,37) + '…' : question;
-  session.messages.push({ id: crypto.randomUUID(), role: 'user', text: question, imageURL: session.url });
+  const userMessage = { id: crypto.randomUUID(), role: 'user', text: question, imageURL: session.url };
+  session.messages.push(userMessage);
   const assistant = {id: crypto.randomUUID(), role: 'assistant', text: '', loading: true};
   session.messages.push(assistant); refs.question.value = ''; resizeInput(); render();
   const token = state.turnstileToken; state.turnstileToken = '';
@@ -159,8 +221,16 @@ async function send() {
     body.append('image', session.file, session.file.name);
     body.append('question', question);
     body.append('turnstile', token);
+    if (state.authSession) {
+      body.append('conversation_id',session.id);
+      body.append('conversation_title',session.title);
+      body.append('user_message_id',userMessage.id);
+      body.append('assistant_message_id',assistant.id);
+    }
     const response = await fetch(cfg.API_BASE_URL.replace(/\/$/,'') + '/infer', {
-      method: 'POST', body, signal: AbortSignal.timeout(INFERENCE_TIMEOUT_MS),
+      method: 'POST', body,
+      headers:state.authSession ? {'Authorization':`Bearer ${state.authSession.access_token}`} : {},
+      signal: AbortSignal.timeout(INFERENCE_TIMEOUT_MS),
     });
     let payload;
     try { payload = await response.json(); } catch { throw Error('Gateway trả về dữ liệu không hợp lệ.'); }
@@ -171,6 +241,8 @@ async function send() {
     if (payload.status !== 'INFERENCE_COMPLETED') throw Error('Backend không hoàn thành lượt suy luận.');
     assistant.text = typeof payload.answer === 'string' ? payload.answer : '';
     assistant.meta = payload.provenance || null;
+    if (state.authSession && payload.history_saved === false)
+      showError('Đã nhận câu trả lời nhưng chưa đồng bộ được lượt chat vào tài khoản.');
   } catch (error) {
     const message = error?.name === 'TimeoutError'
       ? 'Lượt suy luận vượt quá 4 phút. Gateway có thể vẫn đang kết thúc tác vụ; vui lòng chờ rồi thử lại với CAPTCHA mới.'
@@ -280,5 +352,18 @@ window.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&refs.sideba
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.configured)void checkService(true);});
 for(const type of ['dragenter','dragover']) $('#composer').addEventListener(type,(e)=>{e.preventDefault();});
 $('#composer').addEventListener('drop',(e)=>{e.preventDefault();if(!state.busy)void chooseFile(e.dataTransfer.files?.[0]);});
-addSession();initTurnstile();
+for (const link of [refs.accountLink,refs.sidebarLogin,refs.sidebarRegister]) {
+  link.addEventListener('click',(event)=>{
+    if (!state.authSession) return;
+    event.preventDefault(); void logoutAccount();
+  });
+}
+async function initialize() {
+  if (authConfigured) state.authSession = await getSession();
+  updateAccountUI();
+  const loaded = await loadRemoteHistory();
+  if (loaded) render(); else addSession();
+  initTurnstile();
+}
+void initialize();
 if(!state.configured) showError('Đây là bản giao diện xem trước. Quản trị viên cần cấu hình config.js và Cloudflare Worker trước khi mở suy luận công khai.');
