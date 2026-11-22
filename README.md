@@ -5,8 +5,10 @@ Frontend công khai cho demo S3-QLoRA SSRC v04. Dự án dùng HTML/CSS/JavaScri
 ## Cấu trúc
 
 - `index.html`: giao diện, thông báo dữ liệu, Turnstile và Content Security Policy.
+- `login.html`, `register.html`: giao diện tài khoản và validation phía trình duyệt; chưa gửi dữ liệu vì gateway chưa có API xác thực.
 - `config.js`: chỉ chứa Worker URL và Turnstile site key công khai.
 - `assets/app.js`: chat trong bộ nhớ tab, kiểm ảnh, `/health`, Turnstile và `/infer`.
+- `assets/auth.js`, `assets/auth.css`: hành vi và giao diện dùng chung cho đăng nhập/đăng ký.
 - `assets/quota.js`: đọc quota tài khoản demo qua `/quota` mỗi 120 giây.
 - `assets/styles.css`: responsive, dark/light theme và trạng thái quota.
 
@@ -15,6 +17,8 @@ Frontend công khai cho demo S3-QLoRA SSRC v04. Dự án dùng HTML/CSS/JavaScri
 `config.js` đang trỏ tới `https://vinfqa-public-gateway.ptlocnguyen.workers.dev` và có Turnstile site key cho `ptlocnguyen.github.io`. Đây không phải bằng chứng rằng bản GitHub Pages hoặc Worker đang chạy đúng version mới nhất; cần kiểm tra sau khi deploy.
 
 Luồng inference: trình duyệt gửi ảnh, câu hỏi và token Turnstile tới Cloudflare Worker. Worker xác minh và chuyển request tới private Hugging Face Space. Lịch sử chat không được gửi làm prompt; ảnh và câu hỏi vẫn đi qua Cloudflare/Hugging Face và có thể được Space lưu tạm. Không tải dữ liệu cá nhân hoặc nhạy cảm.
+
+Trang đăng nhập/đăng ký hiện là lớp giao diện chuẩn bị, không phải hệ thống xác thực hoàn chỉnh. Form chỉ kiểm tra dữ liệu trong trình duyệt rồi thông báo backend chưa sẵn sàng; không dùng `localStorage`, cookie hay request mạng để giả lập phiên đăng nhập. Muốn bật tài khoản thật cần thiết kế API, kho người dùng, password hashing hoặc OAuth, session và chính sách bảo vệ endpoint ở gateway.
 
 ## Chạy kiểm tra tĩnh cục bộ
 
@@ -25,6 +29,7 @@ Kiểm tra cú pháp không gọi network hoặc inference:
 ```powershell
 node --check .\assets\app.js
 node --check .\assets\quota.js
+node --check .\assets\auth.js
 ```
 
 ## Deploy GitHub Pages

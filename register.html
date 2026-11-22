@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="theme-color" content="#0a1017" />
+  <meta name="description" content="Tạo tài khoản VietInfographicQA Chat." />
+  <title>Đăng ký · VietInfographicQA</title>
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./assets/auth.css" />
+</head>
+<body>
+  <main class="auth-shell">
+    <section class="auth-intro" aria-labelledby="introTitle">
+      <a class="auth-brand" href="./index.html"><span class="auth-brand-mark" aria-hidden="true">V</span><span><strong>VietInfographicQA</strong><small>SSRC V04 · RESEARCH DEMO</small></span></a>
+      <div class="intro-copy">
+        <p class="eyebrow">TÀI KHOẢN VIETINFOGRAPHICQA</p>
+        <h1 id="introTitle">Một tài khoản cho <em>trải nghiệm liền mạch.</em></h1>
+        <p>Trang đăng ký được thiết kế sẵn cho việc đồng bộ phiên và tùy chọn cá nhân trong giai đoạn tiếp theo.</p>
+        <ul class="feature-list">
+          <li><span aria-hidden="true">✓</span>Thông tin tài khoản tách biệt với ảnh suy luận.</li>
+          <li><span aria-hidden="true">✓</span>Không yêu cầu tài khoản Hugging Face.</li>
+          <li><span aria-hidden="true">✓</span>Không lưu mật khẩu trên GitHub Pages.</li>
+        </ul>
+      </div>
+      <a class="back-link" href="./index.html">Quay lại trang chat</a>
+    </section>
+
+    <section class="auth-panel" aria-labelledby="formTitle">
+      <div class="auth-card register-card">
+        <header class="auth-card-header"><span class="mobile-mark" aria-hidden="true">V</span><p class="eyebrow">BẮT ĐẦU</p><h2 id="formTitle">Tạo tài khoản</h2><p>Thiết lập thông tin cơ bản cho tài khoản của bạn.</p></header>
+        <div id="authNotice" class="auth-notice" hidden role="alert"></div>
+        <form id="authForm" data-mode="register" novalidate>
+          <div class="field"><label for="displayName">Tên hiển thị</label><input id="displayName" name="displayName" type="text" autocomplete="name" minlength="2" maxlength="60" placeholder="Nguyễn Văn A" required /><small class="field-error" data-error-for="displayName"></small></div>
+          <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="ban@example.com" required /><small class="field-error" data-error-for="email"></small></div>
+          <div class="field"><div class="field-label-row"><label for="password">Mật khẩu</label><button class="text-button password-toggle" type="button" aria-controls="password confirmPassword" aria-pressed="false">Hiện mật khẩu</button></div><input id="password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="Tối thiểu 8 ký tự" required /><div class="password-meter" aria-hidden="true"><span></span></div><small class="field-hint">Nên có chữ hoa, chữ thường và chữ số.</small><small class="field-error" data-error-for="password"></small></div>
+          <div class="field"><label for="confirmPassword">Nhập lại mật khẩu</label><input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required /><small class="field-error" data-error-for="confirmPassword"></small></div>
+          <label class="check-row consent"><input id="terms" name="terms" type="checkbox" required /><span>Tôi hiểu đây là demo nghiên cứu và sẽ không tải lên dữ liệu cá nhân hoặc nhạy cảm.</span></label><small class="field-error" data-error-for="terms"></small>
+          <button class="primary-button" type="submit">Tạo tài khoản</button>
+        </form>
+        <p class="auth-switch">Đã có tài khoản? <a href="./login.html">Đăng nhập</a></p>
+        <p class="auth-disclaimer">Form chưa gửi dữ liệu cho tới khi backend tài khoản được triển khai.</p>
+      </div>
+    </section>
+  </main>
+  <script src="./assets/auth.js" defer></script>
+</body>
+</html>

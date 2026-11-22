@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="theme-color" content="#0a1017" />
+  <meta name="description" content="Đăng nhập VietInfographicQA Chat." />
+  <title>Đăng nhập · VietInfographicQA</title>
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./assets/auth.css" />
+</head>
+<body>
+  <main class="auth-shell">
+    <section class="auth-intro" aria-labelledby="introTitle">
+      <a class="auth-brand" href="./index.html"><span class="auth-brand-mark" aria-hidden="true">V</span><span><strong>VietInfographicQA</strong><small>SSRC V04 · RESEARCH DEMO</small></span></a>
+      <div class="intro-copy">
+        <p class="eyebrow">VIETINFOGRAPHICQA CHAT</p>
+        <h1 id="introTitle">Tiếp tục khám phá <em>infographic tiếng Việt.</em></h1>
+        <p>Đăng nhập để chuẩn bị đồng bộ phiên làm việc và tùy chọn cá nhân khi dịch vụ tài khoản được kích hoạt.</p>
+        <ul class="feature-list">
+          <li><span aria-hidden="true">✓</span>Lịch sử hiện vẫn chỉ lưu trong tab trình duyệt.</li>
+          <li><span aria-hidden="true">✓</span>Không dùng tài khoản Hugging Face của bạn.</li>
+          <li><span aria-hidden="true">✓</span>Không gửi mật khẩu tới dịch vụ khi backend chưa sẵn sàng.</li>
+        </ul>
+      </div>
+      <a class="back-link" href="./index.html">Quay lại trang chat</a>
+    </section>
+
+    <section class="auth-panel" aria-labelledby="formTitle">
+      <div class="auth-card">
+        <header class="auth-card-header"><span class="mobile-mark" aria-hidden="true">V</span><p class="eyebrow">CHÀO MỪNG TRỞ LẠI</p><h2 id="formTitle">Đăng nhập</h2><p>Nhập thông tin tài khoản VietInfographicQA của bạn.</p></header>
+        <div id="authNotice" class="auth-notice" hidden role="alert"></div>
+        <form id="authForm" data-mode="login" novalidate>
+          <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="ban@example.com" required /><small class="field-error" data-error-for="email"></small></div>
+          <div class="field"><div class="field-label-row"><label for="password">Mật khẩu</label><button class="text-button password-toggle" type="button" aria-controls="password" aria-pressed="false">Hiện mật khẩu</button></div><input id="password" name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" placeholder="Tối thiểu 8 ký tự" required /><small class="field-error" data-error-for="password"></small></div>
+          <div class="form-options"><label class="check-row"><input name="remember" type="checkbox" /><span>Ghi nhớ thiết bị này</span></label><button class="text-button" type="button" data-notice="Khôi phục mật khẩu sẽ được mở khi dịch vụ tài khoản được kích hoạt.">Quên mật khẩu?</button></div>
+          <button class="primary-button" type="submit">Đăng nhập</button>
+        </form>
+        <p class="auth-switch">Chưa có tài khoản? <a href="./register.html">Tạo tài khoản</a></p>
+        <p class="auth-disclaimer">Đây là giao diện chuẩn bị cho hệ thống tài khoản. Backend xác thực chưa được kích hoạt.</p>
+      </div>
+    </section>
+  </main>
+  <script src="./assets/auth.js" defer></script>
+</body>
+</html>

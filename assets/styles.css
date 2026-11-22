@@ -152,6 +152,10 @@ img { max-width: 100%; }
   background: var(--surface-strong);
 }
 
+.sidebar-auth-nav { display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.sidebar-auth-nav a { display: grid; min-height: 40px; place-items: center; border: 1px solid var(--stroke); border-radius: 10px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.sidebar-auth-nav a:last-child { border-color: #376c56; background: #173329; color: var(--accent); }
+
 .plus-icon { font-size: 23px; font-weight: 300; line-height: 1; }
 .kbd { color: var(--soft); font-size: 12px; font-weight: 500; }
 
@@ -336,6 +340,7 @@ img { max-width: 100%; }
 }
 
 .icon-btn:hover { background: var(--surface); color: var(--text); }
+.account-link svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .menu-btn,
 .sidebar-close { display: none; }
 
@@ -819,6 +824,7 @@ img { max-width: 100%; }
   }
 
   .verification-trigger:not([hidden]) { display: flex; }
+  .sidebar-auth-nav { display: grid; }
 }
 
 @media (max-height: 760px) and (min-width: 701px) {
@@ -868,6 +874,7 @@ img { max-width: 100%; }
   .topbar-actions { gap: 2px; }
   .service-status { margin-right: 0; font-size: 0; }
   .service-status .status-dot { width: 9px; height: 9px; }
+  .account-link { display: none; }
 
   .empty-state {
     justify-content: flex-start;
