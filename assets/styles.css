@@ -340,6 +340,8 @@ img { max-width: 100%; }
 }
 
 .icon-btn:hover { background: var(--surface); color: var(--text); }
+.account-link { display: flex; width: auto; min-width: 38px; padding: 0 11px; gap: 7px; border: 1px solid var(--stroke); background: var(--surface); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.account-link:hover { border-color: #55836f; }
 .account-link svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .menu-btn,
 .sidebar-close { display: none; }
@@ -839,7 +841,7 @@ img { max-width: 100%; }
   .sidebar-bottom p { display: none; }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1280px) {
   .gpu-quota-strip {
     display: flex;
     width: auto;
@@ -859,7 +861,7 @@ img { max-width: 100%; }
   .gpu-quota-compact { display: block; font-size: 12px; white-space: nowrap; }
 }
 
-@media (min-width: 1025px) and (max-width: 1180px) {
+@media (min-width: 1025px) and (max-width: 1280px) {
   .topbar { grid-template-columns: auto minmax(72px, 1fr) auto; gap: 8px; }
 }
 
@@ -874,7 +876,8 @@ img { max-width: 100%; }
   .topbar-actions { gap: 2px; }
   .service-status { margin-right: 0; font-size: 0; }
   .service-status .status-dot { width: 9px; height: 9px; }
-  .account-link { display: none; }
+  .account-link { display: flex; width: 38px; padding: 0; justify-content: center; }
+  .account-link span { display: none; }
 
   .empty-state {
     justify-content: flex-start;
@@ -916,6 +919,8 @@ img { max-width: 100%; }
 }
 
 @media (max-width: 350px) {
+  .service-status,
+  #themeToggle { display: none; }
   .verification-trigger { width: 38px; justify-content: center; padding-inline: 7px; }
   .verification-trigger span:last-child {
     position: absolute;
