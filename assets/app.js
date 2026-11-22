@@ -24,6 +24,8 @@ const refs = {
   sidebarBackdrop: $('#sidebarBackdrop'), openSidebar: $('#openSidebar'), closeSidebar: $('#closeSidebar'),
   accountLink: $('#accountLink'), accountLabel: $('#accountLabel'), sidebarLogin: $('#sidebarLogin'), sidebarRegister: $('#sidebarRegister'),
   saveImageOption: $('#saveImageOption'), saveImage: $('#saveImage'),
+  composer: $('#composer'), attachButton: $('#attachButton'), inputHint: $('.input-hint'), sessionLock: $('#sessionLockState'),
+  imageViewer: $('#imageViewer'), imageViewerContent: $('#imageViewerContent'), imageViewerMeta: $('#imageViewerMeta'),
 };
 
 const htmlElement = (tag, cls, text) => {
@@ -33,6 +35,7 @@ const htmlElement = (tag, cls, text) => {
   return element;
 };
 const current = () => state.sessions.find((s) => s.id === state.active);
+const sessionLocked = (session) => Boolean(session?.messages?.some((message) => message.role === 'user'));
 function showError(message = '') {
   refs.error.textContent = message;
   refs.error.hidden = !message;
@@ -48,26 +51,28 @@ function updateAccountUI() {
   refs.sidebarLogin.href = loggedIn ? '#account' : './login.html';
   refs.sidebarRegister.textContent = loggedIn ? 'Đăng xuất' : 'Đăng ký';
   refs.sidebarRegister.href = loggedIn ? '#logout' : './register.html';
-  refs.saveImageOption.hidden = !loggedIn;
   if (!loggedIn) refs.saveImage.checked = false;
 }
 function releaseSessionImages(sessions = state.sessions) {
   for (const session of sessions) {
     if (session.url) URL.revokeObjectURL(session.url);
-    for (const message of session.messages || []) {
-      if (message.imageObjectUrl && message.imageURL) URL.revokeObjectURL(message.imageURL);
-    }
   }
 }
 async function hydratePrivateImages(sessions) {
   if (!state.authSession) return;
   const authSession = state.authSession;
-  const messages = sessions.flatMap((session) => session.messages).filter((message) => message.attachmentPath).slice(0,30);
-  await Promise.allSettled(messages.map(async (message) => {
-    const blob = await fetchPrivateImage(message.attachmentPath,authSession);
-    if (sessions !== state.sessions || state.authSession?.access_token !== authSession.access_token) return;
-    message.imageURL = URL.createObjectURL(blob);
-    message.imageObjectUrl = true;
+  await Promise.allSettled(sessions.map(async (session) => {
+    const attachment = session.messages.find((message) => message.attachmentPath);
+    if (!attachment) return;
+    try {
+      const blob = await fetchPrivateImage(attachment.attachmentPath,authSession);
+      if (sessions !== state.sessions || state.authSession?.access_token !== authSession.access_token) return;
+      const extension = attachment.attachmentPath.split('.').pop() || 'png';
+      const fileName = `Ảnh đã lưu.${extension}`;
+      session.file = new File([blob],fileName,{type:blob.type});
+      session.url = URL.createObjectURL(blob);
+      session.imageStored = true;
+    } finally { session.imageHydrating = false; }
   }));
   if (sessions === state.sessions) render();
 }
@@ -91,16 +96,17 @@ async function loadRemoteHistory() {
     const payload = await response.json();
     if (!response.ok || !Array.isArray(payload.conversations)) throw Error(payload.message || 'Chưa tải được lịch sử.');
     const previousSessions = state.sessions;
-    const remoteSessions = payload.conversations.map((conversation) => ({
-      id:conversation.id,
-      title:conversation.title || 'Cuộc trò chuyện mới',
-      messages:Array.isArray(conversation.messages) ? conversation.messages.map((message) => ({
+    const remoteSessions = payload.conversations.map((conversation) => {
+      const messages = Array.isArray(conversation.messages) ? conversation.messages.map((message) => ({
         id:message.id, role:message.role, text:message.content,
         meta:message.role === 'assistant' && message.metadata && typeof message.metadata === 'object' ? message.metadata : null,
         attachmentPath:message.role === 'user' && typeof message.attachment_path === 'string' ? message.attachment_path : '',
-      })) : [],
-      file:null,url:'',
-    }));
+      })) : [];
+      return {
+        id:conversation.id, title:conversation.title || 'Cuộc trò chuyện mới', messages,
+        file:null,url:'',remote:true,imageHydrating:messages.some((message) => message.attachmentPath),
+      };
+    });
     releaseSessionImages(previousSessions);
     state.sessions = remoteSessions;
     state.active = state.sessions[0]?.id || null;
@@ -112,7 +118,7 @@ async function loadRemoteHistory() {
   }
 }
 function addSession() {
-  const session = { id: crypto.randomUUID(), title: 'Cuộc trò chuyện mới', messages: [], file: null, url: '' };
+  const session = { id: crypto.randomUUID(), title: 'Cuộc trò chuyện mới', messages: [], file: null, url: '', imageStored:false, imageSavePreference:false };
   state.sessions.unshift(session);
   while (state.sessions.length > MAX_SESSIONS) {
     const removed = state.sessions.pop();
@@ -137,20 +143,33 @@ function render() {
   refs.empty.hidden = session.messages.length > 0;
   refs.messages.classList.toggle('active', session.messages.length > 0);
   refs.messages.replaceChildren();
+  if (sessionLocked(session)) refs.messages.append(createSessionImageNode(session));
   for (const msg of session.messages) refs.messages.append(createMessageNode(msg));
   syncImageChip();
   updateSendState();
   scrollToBottom();
+}
+function createSessionImageNode(session) {
+  if (!session.file || !session.url) {
+    const text = session.imageHydrating
+      ? 'Đang tải ảnh riêng tư của cuộc trò chuyện…'
+      : 'Ảnh của cuộc trò chuyện này không được lưu. Hãy tạo cuộc trò chuyện mới để tiếp tục hỏi trên một ảnh khác.';
+    return htmlElement('div','session-image-missing',text);
+  }
+  const button = htmlElement('button','session-image-context');
+  button.type = 'button'; button.title = 'Mở ảnh kích thước lớn';
+  const image = htmlElement('img'); image.src = session.url; image.alt = '';
+  const copy = htmlElement('span','session-image-copy');
+  copy.append(htmlElement('strong','',session.file.name),htmlElement('small','', 'Ảnh cố định của cuộc trò chuyện · Nhấn để xem lớn'));
+  button.append(image,copy,htmlElement('span','session-image-action','Xem ảnh'));
+  button.onclick = () => openImageViewer(session);
+  return button;
 }
 function createMessageNode(msg) {
   const wrap = htmlElement('article', `message ${msg.role}`);
   if (msg.role === 'assistant') wrap.append(htmlElement('div', 'bot-avatar', 'V'));
   const content = htmlElement('div', 'message-content');
   if (msg.role === 'assistant') content.append(htmlElement('div', 'msg-label', 'S3-QLoRA · Trợ lý infographic'));
-  if (msg.imageURL) {
-    const img = htmlElement('img', 'message-image'); img.src = msg.imageURL;
-    img.alt = 'Ảnh infographic do người dùng đính kèm'; content.append(img);
-  }
   content.append(htmlElement('div', 'msg-body', msg.text));
   if (msg.loading) {
     const wait = htmlElement('div', 'typing');
@@ -175,19 +194,33 @@ function createMessageNode(msg) {
   wrap.append(content); return wrap;
 }
 function scrollToBottom() { requestAnimationFrame(() => { refs.messages.scrollTop = refs.messages.scrollHeight; }); }
+function openImageViewer(session = current()) {
+  if (!session?.url || !session?.file) return;
+  refs.imageViewerContent.src = session.url;
+  refs.imageViewerMeta.textContent = `${session.file.name} · ${(session.file.size/1024/1024).toFixed(2)} MB`;
+  if (!refs.imageViewer.open) refs.imageViewer.showModal();
+}
 function syncImageChip() {
-  const session = current(); const exists = Boolean(session?.file);
-  refs.imageChip.hidden = !exists;
-  if (exists) {
+  const session = current(); const exists = Boolean(session?.file); const locked = sessionLocked(session);
+  refs.imageChip.hidden = !exists || locked;
+  refs.attachButton.hidden = locked;
+  refs.inputHint.hidden = locked;
+  refs.sessionLock.hidden = !locked || !exists;
+  refs.saveImageOption.hidden = !state.authSession || locked || !exists;
+  refs.composer.classList.toggle('image-locked',locked);
+  if (exists && !locked) {
     refs.preview.src = session.url;
     refs.imageName.textContent = session.file.name;
     refs.imageMeta.textContent = `${(session.file.size/1024/1024).toFixed(2)} MB · ${session.file.type.replace('image/','').toUpperCase()}`;
   } else { refs.preview.removeAttribute('src'); }
 }
 function updateSendState() {
-  refs.send.disabled = state.busy || !state.configured || !state.serviceReady || !current()?.file || !refs.question.value.trim() || !state.turnstileToken;
+  const session = current(); const unavailable = sessionLocked(session) && !session?.file;
+  refs.send.disabled = state.busy || unavailable || !state.configured || !state.serviceReady || !session?.file || !refs.question.value.trim() || !state.turnstileToken;
   refs.send.title = !state.configured ? 'Chưa cấu hình Worker API và Turnstile' : 'Gửi câu hỏi';
-  refs.question.disabled = state.busy; refs.imageInput.disabled = state.busy;
+  refs.question.disabled = state.busy || unavailable;
+  refs.question.placeholder = unavailable ? 'Phiên này không còn ảnh để tiếp tục' : (sessionLocked(session) ? 'Hỏi tiếp về infographic này…' : 'Chọn một ảnh rồi đặt câu hỏi…');
+  refs.imageInput.disabled = state.busy || sessionLocked(session);
 }
 async function checkImage(file) {
   if (!['image/png','image/jpeg','image/webp'].includes(file.type)) throw Error('Chỉ hỗ trợ PNG, JPG hoặc WebP.');
@@ -199,6 +232,7 @@ async function checkImage(file) {
 async function chooseFile(file) {
   if (!file) return;
   try {
+    if (sessionLocked(current())) throw Error('Mỗi cuộc trò chuyện chỉ dùng một ảnh. Hãy tạo cuộc trò chuyện mới để đổi ảnh.');
     await checkImage(file);
     const session = current(); if (session.url) URL.revokeObjectURL(session.url);
     session.file = file; session.url = URL.createObjectURL(file);
@@ -227,20 +261,19 @@ function retryLabel(value) {
 async function send() {
   const session = current(); const question = refs.question.value.trim();
   if (!state.configured || state.busy || !session.file || !question || !state.turnstileToken) return;
+  const isFirstTurn = !sessionLocked(session);
   let sessionExpired = false;
   if (state.authSession) {
     state.authSession = await getSession();
     updateAccountUI();
     sessionExpired = !state.authSession;
   }
-  const saveImageRequested = Boolean(state.authSession && refs.saveImage.checked);
+  if (isFirstTurn) session.imageSavePreference = Boolean(state.authSession && refs.saveImage.checked);
+  const saveImageRequested = Boolean(state.authSession && session.imageSavePreference && !session.imageStored);
   showError(sessionExpired ? 'Phiên đăng nhập đã hết hạn. Lượt này sẽ không được đồng bộ vào tài khoản.' : '');
   state.busy = true; updateSendState();
   if (!session.messages.length) session.title = question.length > 37 ? question.slice(0,37) + '…' : question;
-  const userMessage = {
-    id:crypto.randomUUID(), role:'user', text:question,
-    imageURL:URL.createObjectURL(session.file), imageObjectUrl:true,
-  };
+  const userMessage = {id:crypto.randomUUID(),role:'user',text:question};
   session.messages.push(userMessage);
   const assistant = {id: crypto.randomUUID(), role: 'assistant', text: '', loading: true};
   session.messages.push(assistant); refs.question.value = ''; resizeInput(); render();
@@ -271,6 +304,7 @@ async function send() {
     if (payload.status !== 'INFERENCE_COMPLETED') throw Error('Backend không hoàn thành lượt suy luận.');
     assistant.text = typeof payload.answer === 'string' ? payload.answer : '';
     assistant.meta = payload.provenance || null;
+    if (payload.image_saved === true) session.imageStored = true;
     if (state.authSession && payload.history_saved === false)
       showError('Đã nhận câu trả lời nhưng chưa đồng bộ được lượt chat vào tài khoản.');
     else if (saveImageRequested && payload.image_saved === false)
@@ -359,7 +393,13 @@ refs.question.addEventListener('input',()=>{resizeInput();updateSendState();});
 refs.question.addEventListener('keydown',(event)=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void send();}});
 refs.send.addEventListener('click',()=>void send());
 refs.imageInput.addEventListener('change',(e)=>void chooseFile(e.target.files?.[0]));
-$('#removeImage').onclick=()=>{const s=current();if(s.url){URL.revokeObjectURL(s.url);}s.file=null;s.url='';refs.imageInput.value='';syncImageChip();updateSendState();};
+$('#openSelectedImage').onclick=()=>openImageViewer();
+$('#removeImage').onclick=()=>{
+  const session=current();
+  if(sessionLocked(session)){showError('Ảnh đã được khóa cho cuộc trò chuyện này. Hãy tạo cuộc trò chuyện mới để đổi ảnh.');return;}
+  if(session.url) URL.revokeObjectURL(session.url);
+  session.file=null;session.url='';session.imageSavePreference=false;refs.imageInput.value='';refs.saveImage.checked=false;syncImageChip();updateSendState();
+};
 $('#newChat').onclick=()=>{if(!state.busy){addSession();refs.question.value='';resizeInput();showError();closeSidebar();}};
 function closeSidebar(restoreFocus = false){refs.sidebar.classList.remove('open');refs.sidebarBackdrop.hidden=true;if(restoreFocus)refs.openSidebar.focus();}
 refs.openSidebar.onclick=()=>{refs.sidebar.classList.add('open');refs.sidebarBackdrop.hidden=false;refs.closeSidebar.focus();};
@@ -376,14 +416,39 @@ $('#themeToggle').onclick=()=>{root.classList.toggle('theme-light');$('#themeTog
 $('#aboutToggle').onclick=()=>$('#aboutDialog').showModal();
 $('#closeAbout').onclick=()=>$('#aboutDialog').close();
 $('#understood').onclick=()=>$('#aboutDialog').close();
+$('#closeImageViewer').onclick=()=>refs.imageViewer.close();
+refs.imageViewer.addEventListener('click',(event)=>{if(event.target===refs.imageViewer)refs.imageViewer.close();});
+refs.imageViewer.addEventListener('close',()=>refs.imageViewerContent.removeAttribute('src'));
 refs.refreshCaptcha.onclick=()=>{showError();rerenderTurnstile();};
 $('#examples').addEventListener('click',(event)=>{
   const button=event.target.closest('[data-prompt]');if(button){refs.question.value=button.dataset.prompt;resizeInput();updateSendState();refs.question.focus();}
 });
 window.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&refs.sidebar.classList.contains('open'))closeSidebar(true);if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();if(!state.busy) addSession();}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.configured)void checkService(true);});
-for(const type of ['dragenter','dragover']) $('#composer').addEventListener(type,(e)=>{e.preventDefault();});
-$('#composer').addEventListener('drop',(e)=>{e.preventDefault();if(!state.busy)void chooseFile(e.dataTransfer.files?.[0]);});
+let dragDepth = 0;
+const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+refs.composer.addEventListener('dragenter',(event)=>{
+  if(!isFileDrag(event))return;
+  event.preventDefault();dragDepth+=1;
+  if(!state.busy&&!sessionLocked(current()))refs.composer.classList.add('drag-active');
+});
+refs.composer.addEventListener('dragover',(event)=>{
+  if(!isFileDrag(event))return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect=!state.busy&&!sessionLocked(current())?'copy':'none';
+});
+refs.composer.addEventListener('dragleave',(event)=>{
+  if(!isFileDrag(event))return;
+  dragDepth=Math.max(0,dragDepth-1);if(dragDepth===0)refs.composer.classList.remove('drag-active');
+});
+refs.composer.addEventListener('drop',(event)=>{
+  if(!isFileDrag(event))return;
+  event.preventDefault();dragDepth=0;refs.composer.classList.remove('drag-active');
+  if(state.busy)return;
+  if(sessionLocked(current())){showError('Mỗi cuộc trò chuyện chỉ dùng một ảnh. Hãy tạo cuộc trò chuyện mới để đổi ảnh.');return;}
+  void chooseFile(event.dataTransfer.files?.[0]);
+});
+document.addEventListener('dragend',()=>{dragDepth=0;refs.composer.classList.remove('drag-active');});
 for (const link of [refs.accountLink,refs.sidebarLogin,refs.sidebarRegister]) {
   link.addEventListener('click',(event)=>{
     if (!state.authSession) return;
