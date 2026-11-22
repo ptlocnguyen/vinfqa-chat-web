@@ -9,7 +9,7 @@
   <meta name="description" content="VietInfographicQA: hỏi đáp trên infographic tiếng Việt bằng S3-QLoRA SSRC v04." />
   <title>VietInfographicQA · S3-QLoRA Chat</title>
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="./assets/styles.css?v=20261122-4" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20261122-5" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -28,7 +28,7 @@
           <div id="proofRow" class="proof-row" data-state="loading" aria-live="polite" tabindex="-1"><div id="turnstileBox" class="turnstile-box"></div><span class="verification-badge"><span aria-hidden="true">✓</span>Đã xác minh</span><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
         </section>
         <div class="mini-info"><span class="pulse-dot"></span><div><strong>S3-QLoRA v04</strong><small>Qwen3-VL-4B · 4 nhánh</small></div></div>
-        <p>Khách chỉ giữ lịch sử trong tab. Khi đăng nhập, câu hỏi và câu trả lời được đồng bộ; ảnh chỉ được lưu riêng tư khi bạn chủ động bật tùy chọn. Ảnh vẫn đi qua Cloudflare Worker tới Hugging Face Space để suy luận. Không gửi dữ liệu nhạy cảm.</p>
+        <p>Mỗi cuộc trò chuyện dùng một ảnh cố định. Khách chỉ giữ phiên trong tab; tài khoản có thể lưu ảnh riêng tư để tiếp tục sau. Ảnh vẫn đi qua Cloudflare Worker tới Hugging Face Space để suy luận. Không gửi dữ liệu nhạy cảm.</p>
         <a href="https://huggingface.co/spaces/ptlocnguyen/s3-qlora-v04-demo" target="_blank" rel="noopener noreferrer">Mở Hugging Face Space</a>
       </div>
     </aside>
@@ -68,25 +68,27 @@
       <div class="composer-wrap">
         <div id="errorNotice" class="error-notice" hidden role="alert"></div>
         <div class="composer" id="composer">
-          <div id="imageChip" class="image-chip" hidden><img id="previewImage" alt="Ảnh đang đính kèm"/><div class="image-chip-text"><strong id="imageName">Ảnh infographic</strong><small id="imageMeta"></small></div><button id="removeImage" class="remove-image" title="Bỏ ảnh" aria-label="Bỏ ảnh">✕</button></div>
+          <div class="drop-overlay" aria-hidden="true"><span>＋</span><strong>Thả ảnh để bắt đầu phiên</strong><small>PNG, JPG hoặc WebP · tối đa 8 MB</small></div>
+          <div id="imageChip" class="image-chip" hidden><button id="openSelectedImage" class="image-chip-preview" type="button" title="Xem ảnh lớn"><img id="previewImage" alt="Ảnh đang chọn cho cuộc trò chuyện"/></button><div class="image-chip-text"><strong id="imageName">Ảnh infographic</strong><small id="imageMeta"></small></div><button id="removeImage" class="remove-image" title="Bỏ ảnh" aria-label="Bỏ ảnh">✕</button></div>
           <div class="composer-main">
             <label class="sr-only" for="questionInput">Câu hỏi bằng tiếng Việt</label>
             <textarea id="questionInput" rows="1" maxlength="1000" placeholder="Hỏi bất cứ điều gì về infographic…"></textarea>
           </div>
           <div class="composer-bottom">
-            <div class="left-tools"><label class="attach-button" for="imageInput" title="Đính kèm ảnh infographic"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB</span><label id="saveImageOption" class="save-image-option" title="Lưu ảnh trong kho riêng tư của tài khoản" hidden><input id="saveImage" type="checkbox"/><span>Lưu ảnh</span></label></div>
+            <div class="left-tools"><label id="attachButton" class="attach-button" for="imageInput" title="Chọn ảnh cho cuộc trò chuyện"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB</span><span id="sessionLockState" class="session-lock-state" hidden><span aria-hidden="true">◇</span> Đang dùng ảnh của phiên</span><label id="saveImageOption" class="save-image-option" title="Lưu ảnh trong kho riêng tư của tài khoản để tiếp tục phiên sau" hidden><input id="saveImage" type="checkbox"/><span>Lưu ảnh để tiếp tục sau</span></label></div>
             <button id="openVerification" class="verification-trigger" type="button"><span aria-hidden="true">✓</span><span id="verificationTriggerLabel">Xác minh</span></button>
             <button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>Gửi</button>
           </div>
         </div>
-        <p class="composer-footnote">Không gửi dữ liệu cá nhân hoặc nhạy cảm · Ảnh không được lưu mặc định · Mỗi câu hỏi độc lập · Tối đa 32 token</p>
+        <p class="composer-footnote">Một ảnh cố định cho mỗi cuộc trò chuyện · Ảnh không được lưu mặc định · Tối đa 32 token</p>
       </div>
     </main>
   </div>
+  <dialog id="imageViewer" class="image-viewer" aria-labelledby="imageViewerTitle"><div class="image-viewer-top"><div><strong id="imageViewerTitle">Ảnh của cuộc trò chuyện</strong><small id="imageViewerMeta"></small></div><button id="closeImageViewer" class="icon-btn" type="button" aria-label="Đóng ảnh lớn">✕</button></div><div class="image-viewer-canvas"><img id="imageViewerContent" alt="Ảnh infographic kích thước lớn"/></div></dialog>
   <dialog id="aboutDialog" class="about-dialog"><div class="dialog-top"><strong>Về VietInfographicQA</strong><button id="closeAbout" class="icon-btn" aria-label="Đóng">✕</button></div><p>Giao diện trò chuyện minh họa hệ S3-QLoRA trong paper SSRC v04. Backbone Qwen3-VL-4B-Instruct 4-bit NF4; router TF-IDF + LinearSVC chọn Frozen Image-span hoặc QLoRA Multi-span, Non-extractive, Question-span.</p><p>Không dùng lịch sử hội thoại để thay prompt; không hiển thị độ tin cậy chưa hiệu chuẩn. Suy luận có thể chờ GPU ZeroGPU và bị cắt ở 32 token.</p><p class="dialog-alert">Không tải lên ảnh chứa dữ liệu cá nhân hoặc thông tin nhạy cảm. Các ảnh gửi để suy luận sẽ đi qua Cloudflare Worker đến Hugging Face Space.</p><button id="understood" class="dialog-ok">Đã hiểu</button></dialog>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js?v=20261122-3"></script>
-  <script type="module" src="./assets/app.js?v=20261122-4"></script>
+  <script type="module" src="./assets/app.js?v=20261122-5"></script>
   <script type="module" src="./assets/quota.js?v=20261122-3"></script>
 </body>
 </html>
