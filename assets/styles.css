@@ -669,6 +669,44 @@ img { max-width: 100%; }
 }
 
 .composer-main textarea::placeholder { color: var(--soft); }
+.token-selector {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto repeat(3, minmax(82px, auto));
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+}
+.token-selector legend {
+  padding: 0 5px 0 2px;
+  color: var(--soft);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.token-option { position: relative; min-width: 0; cursor: pointer; }
+.token-option input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.token-option span {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid var(--stroke);
+  border-radius: 9px;
+  color: var(--muted);
+  transition: border-color .16s, background .16s, color .16s;
+  white-space: nowrap;
+}
+.token-option strong { font-size: 13px; }
+.token-option small { overflow: hidden; font-size: 11px; text-overflow: ellipsis; }
+.token-option:hover input:not(:disabled) + span { border-color: #55836f; color: var(--text); }
+.token-option input:checked + span { border-color: #477c64; background: #173329; color: var(--accent); }
+.token-option input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.token-option input:disabled + span { cursor: not-allowed; opacity: .52; }
 .composer-bottom {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -888,6 +926,7 @@ img { max-width: 100%; }
 .theme-light .version { background: #dcefe7; color: #126a4d; }
 .theme-light .examples button { background: linear-gradient(145deg, white, #edf3f6); }
 .theme-light .image-chip { background: #e2f2ec; }
+.theme-light .token-option input:checked + span { background: #e2f2ec; color: #126a4d; }
 .theme-light .session-image-missing { background: #fff3df; color: #704d1f; }
 .theme-light .meta-pill { background: #e0f1e9; color: #1e6047; }
 .theme-light .message-image { background: white; }
@@ -1010,6 +1049,10 @@ img { max-width: 100%; }
 
   .composer-wrap { width: calc(100% - 20px); padding: 9px 0 10px; }
   .composer { padding: 11px 12px; border-radius: 15px; }
+  .token-selector { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .token-selector legend { grid-column: 1 / -1; padding: 0 2px 2px; }
+  .token-option span { min-height: 36px; padding-inline: 5px; }
+  .token-option small { display: none; }
   .composer-bottom { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
   .left-tools { gap: 7px; }
   .input-hint { display: none; }

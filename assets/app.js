@@ -1,4 +1,5 @@
 import {accountLabel, authConfigured, fetchPrivateImage, getSession, signOut} from './supabase-auth.js';
+import {DEFAULT_MAX_NEW_TOKENS, provenancePresentation, supportedTokenLimits as readSupportedTokenLimits} from './inference-mode.mjs';
 
 const cfg = window.VINFQA_PUBLIC_CONFIG || {};
 const $ = (selector) => document.querySelector(selector);
@@ -13,6 +14,7 @@ const state = {
   configured: /^https:\/\//.test(cfg.API_BASE_URL || '') && Boolean(cfg.TURNSTILE_SITE_KEY), serviceReady: false,
   healthAttempt: 0, healthTimer: null, turnstileStartedAt: 0, turnstileTimer: null,
   authSession: null,
+  supportedTokenLimits: [DEFAULT_MAX_NEW_TOKENS],
 };
 const refs = {
   sidebar: $('#sidebar'), chatList: $('#chatList'), empty: $('#emptyState'),
@@ -26,6 +28,8 @@ const refs = {
   saveImageOption: $('#saveImageOption'), saveImage: $('#saveImage'),
   composer: $('#composer'), attachButton: $('#attachButton'), inputHint: $('.input-hint'), sessionLock: $('#sessionLockState'),
   imageViewer: $('#imageViewer'), imageViewerContent: $('#imageViewerContent'), imageViewerMeta: $('#imageViewerMeta'),
+  tokenInputs: [...document.querySelectorAll('input[name="max_new_tokens"]')],
+  tokenStatus: $('#tokenCapabilityStatus'), composerFootnote: $('#composerFootnote'),
 };
 
 const htmlElement = (tag, cls, text) => {
@@ -36,6 +40,7 @@ const htmlElement = (tag, cls, text) => {
 };
 const current = () => state.sessions.find((s) => s.id === state.active);
 const sessionLocked = (session) => Boolean(session?.messages?.some((message) => message.role === 'user'));
+const selectedMaxNewTokens = () => Number(refs.tokenInputs.find((input) => input.checked)?.value || DEFAULT_MAX_NEW_TOKENS);
 function showError(message = '') {
   refs.error.textContent = message;
   refs.error.hidden = !message;
@@ -149,6 +154,26 @@ function render() {
   updateSendState();
   scrollToBottom();
 }
+function syncTokenControls() {
+  const selected = selectedMaxNewTokens();
+  if (!state.supportedTokenLimits.includes(selected)) {
+    const defaultInput = refs.tokenInputs.find((input) => Number(input.value) === DEFAULT_MAX_NEW_TOKENS);
+    if (defaultInput) defaultInput.checked = true;
+  }
+  for (const input of refs.tokenInputs) {
+    const value = Number(input.value); const supported = state.supportedTokenLimits.includes(value);
+    input.disabled = state.busy || !supported;
+    const detail = input.nextElementSibling?.querySelector('small');
+    if (detail && value !== DEFAULT_MAX_NEW_TOKENS)
+      detail.textContent = supported ? 'Extended Demo' : 'Extended · Chưa khả dụng';
+  }
+  const extendedAvailable = state.supportedTokenLimits.includes(64) && state.supportedTokenLimits.includes(128);
+  refs.tokenStatus.textContent = extendedAvailable
+    ? 'Extended Demo khả dụng với giới hạn 64 và 128 tokens.'
+    : 'Extended Demo chưa khả dụng. Giới hạn hiện tại là 32 tokens.';
+  const active = selectedMaxNewTokens();
+  refs.composerFootnote.textContent = `Một ảnh cố định cho mỗi cuộc trò chuyện · Ảnh không được lưu mặc định · ${active === 32 ? 'SSRC v04' : 'Extended Demo'}: tối đa ${active} tokens`;
+}
 function createSessionImageNode(session) {
   if (!session.file || !session.url) {
     const text = session.imageHydrating
@@ -180,11 +205,12 @@ function createMessageNode(msg) {
   }
   if (msg.meta) {
     const pills = htmlElement('div', 'message-meta');
-    const meta = msg.meta;
+    const meta = msg.meta; const presentation = provenancePresentation(meta);
+    pills.append(htmlElement('span','meta-pill mode',presentation.modeLabel));
     pills.append(htmlElement('span','meta-pill', meta.selected_branch || meta.route_predicted || 'S3-QLoRA'));
     if (typeof meta.elapsed_seconds === 'number') pills.append(htmlElement('span','meta-pill', `${meta.elapsed_seconds.toLocaleString('vi-VN')} giây`));
-    if (Number.isInteger(meta.output_tokens)) pills.append(htmlElement('span','meta-pill', `${meta.output_tokens}/32 tokens`));
-    if (meta.possible_truncation) pills.append(htmlElement('span','meta-pill warn', 'Có thể bị cắt ở 32 tokens'));
+    pills.append(htmlElement('span','meta-pill',presentation.tokenLabel));
+    if (presentation.truncation) pills.append(htmlElement('span','meta-pill warn',presentation.truncation));
     content.append(pills);
     const details = htmlElement('details','detail-box');
     details.append(htmlElement('summary','', 'Thông tin suy luận / provenance'));
@@ -216,11 +242,13 @@ function syncImageChip() {
 }
 function updateSendState() {
   const session = current(); const unavailable = sessionLocked(session) && !session?.file;
-  refs.send.disabled = state.busy || unavailable || !state.configured || !state.serviceReady || !session?.file || !refs.question.value.trim() || !state.turnstileToken;
+  const tokenLimitSupported = state.supportedTokenLimits.includes(selectedMaxNewTokens());
+  refs.send.disabled = state.busy || unavailable || !tokenLimitSupported || !state.configured || !state.serviceReady || !session?.file || !refs.question.value.trim() || !state.turnstileToken;
   refs.send.title = !state.configured ? 'Chưa cấu hình Worker API và Turnstile' : 'Gửi câu hỏi';
   refs.question.disabled = state.busy || unavailable;
   refs.question.placeholder = unavailable ? 'Phiên này không còn ảnh để tiếp tục' : (sessionLocked(session) ? 'Hỏi tiếp về infographic này…' : 'Chọn một ảnh rồi đặt câu hỏi…');
   refs.imageInput.disabled = state.busy || sessionLocked(session);
+  syncTokenControls();
 }
 async function checkImage(file) {
   if (!['image/png','image/jpeg','image/webp'].includes(file.type)) throw Error('Chỉ hỗ trợ PNG, JPG hoặc WebP.');
@@ -262,6 +290,10 @@ async function send() {
   const session = current(); const question = refs.question.value.trim();
   if (!state.configured || state.busy || !session.file || !question || !state.turnstileToken) return;
   const isFirstTurn = !sessionLocked(session);
+  const maxNewTokens = selectedMaxNewTokens();
+  if (!state.supportedTokenLimits.includes(maxNewTokens)) {
+    showError('Mức token đã chọn chưa được backend hỗ trợ.'); return;
+  }
   let sessionExpired = false;
   if (state.authSession) {
     state.authSession = await getSession();
@@ -283,6 +315,7 @@ async function send() {
     body.append('image', session.file, session.file.name);
     body.append('question', question);
     body.append('turnstile', token);
+    if (maxNewTokens !== DEFAULT_MAX_NEW_TOKENS) body.append('max_new_tokens',String(maxNewTokens));
     if (state.authSession) {
       body.append('conversation_id',session.id);
       body.append('conversation_title',session.title);
@@ -298,6 +331,9 @@ async function send() {
     let payload;
     try { payload = await response.json(); } catch { throw Error('Gateway trả về dữ liệu không hợp lệ.'); }
     if (!response.ok) {
+      if (payload.code === 'EXTENDED_BACKEND_UNAVAILABLE') {
+        state.supportedTokenLimits = [DEFAULT_MAX_NEW_TOKENS]; syncTokenControls();
+      }
       const suffix = response.status === 429 ? retryLabel(response.headers.get('Retry-After')) : '';
       throw Error((payload.message || `Gateway từ chối (${response.status}).`) + suffix);
     }
@@ -341,9 +377,12 @@ async function checkService(resetAttempts = false) {
     });
     const data = await response.json();
     const ready = response.ok && data.status === 'ready';
+    state.supportedTokenLimits = readSupportedTokenLimits(data,cfg.EXTENDED_DEMO_UI_ENABLED === true);
+    syncTokenControls();
     setServiceState(ready,ready ? ' Gateway sẵn sàng' : ' Đang khóa inference');
     if (!ready) scheduleHealthRetry();
   } catch {
+    state.supportedTokenLimits = [DEFAULT_MAX_NEW_TOKENS];syncTokenControls();
     setServiceState(false,' Gateway chưa sẵn sàng'); scheduleHealthRetry();
   }
 }
@@ -392,6 +431,7 @@ function initTurnstile() {
 refs.question.addEventListener('input',()=>{resizeInput();updateSendState();});
 refs.question.addEventListener('keydown',(event)=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void send();}});
 refs.send.addEventListener('click',()=>void send());
+for (const input of refs.tokenInputs) input.addEventListener('change',()=>{showError();syncTokenControls();updateSendState();});
 refs.imageInput.addEventListener('change',(e)=>void chooseFile(e.target.files?.[0]));
 $('#openSelectedImage').onclick=()=>openImageViewer();
 $('#removeImage').onclick=()=>{
@@ -400,7 +440,7 @@ $('#removeImage').onclick=()=>{
   if(session.url) URL.revokeObjectURL(session.url);
   session.file=null;session.url='';session.imageSavePreference=false;refs.imageInput.value='';refs.saveImage.checked=false;syncImageChip();updateSendState();
 };
-$('#newChat').onclick=()=>{if(!state.busy){addSession();refs.question.value='';resizeInput();showError();closeSidebar();}};
+$('#newChat').onclick=()=>{if(!state.busy){const defaultInput=refs.tokenInputs.find((input)=>Number(input.value)===DEFAULT_MAX_NEW_TOKENS);if(defaultInput)defaultInput.checked=true;addSession();refs.question.value='';resizeInput();showError();closeSidebar();}};
 function closeSidebar(restoreFocus = false){refs.sidebar.classList.remove('open');refs.sidebarBackdrop.hidden=true;if(restoreFocus)refs.openSidebar.focus();}
 refs.openSidebar.onclick=()=>{refs.sidebar.classList.add('open');refs.sidebarBackdrop.hidden=false;refs.closeSidebar.focus();};
 refs.closeSidebar.onclick=()=>closeSidebar(true);

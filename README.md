@@ -8,6 +8,7 @@ Frontend công khai cho demo S3-QLoRA SSRC v04. Dự án dùng HTML/CSS/JavaScri
 - `login.html`, `register.html`, `reset-password.html`: Supabase Auth email/password, khôi phục mật khẩu và validation phía trình duyệt.
 - `config.js`: chỉ chứa Worker URL, Turnstile site key, Supabase URL và publishable key công khai.
 - `assets/app.js`: chat theo mô hình một ảnh cố định cho mỗi cuộc trò chuyện, đồng bộ lịch sử khi đăng nhập, kiểm ảnh, `/health`, Turnstile và `/infer`.
+- `assets/inference-mode.mjs`: chuẩn hóa capability 32/64/128 và cách trình bày provenance SSRC v04/Extended Demo.
 - `assets/auth.js`, `assets/supabase-auth.js`, `assets/auth.css`: giao diện tài khoản, session/refresh token và kết nối Supabase Auth.
 - `assets/quota.js`: đọc quota tài khoản demo qua `/quota` mỗi 120 giây.
 - `assets/styles.css`: responsive, dark/light theme và trạng thái quota.
@@ -20,6 +21,8 @@ Luồng inference: trình duyệt gửi ảnh, câu hỏi, token Turnstile và J
 
 Trong một tab, người dùng chỉ chọn hoặc kéo-thả ảnh một lần khi bắt đầu cuộc trò chuyện; các câu tiếp theo tự dùng lại ảnh đó. Ảnh bị khóa sau câu hỏi đầu tiên. Phiên đã đồng bộ chỉ có thể tiếp tục sau khi tải lại trang nếu ảnh đã được người dùng cho phép lưu riêng tư; phiên không có ảnh được giữ ở chế độ chỉ đọc.
 
+Bộ chọn độ dài luôn mặc định 32 tokens (SSRC v04). Hai mức 64/128 chỉ được bật khi `EXTENDED_DEMO_UI_ENABLED` cho phép hiển thị và `/health` của gateway đồng thời quảng bá capability Extended đã cấu hình. Frontend không tự fallback một yêu cầu Extended sang v04.
+
 Tài khoản chỉ hoạt động khi `SUPABASE_URL` và `SUPABASE_PUBLISHABLE_KEY` được cấu hình ở cả frontend và Worker. Mặc định session nằm trong `sessionStorage`; tùy chọn “Ghi nhớ thiết bị này” dùng `localStorage`. Mật khẩu được gửi thẳng tới Supabase Auth qua HTTPS, không đi qua Worker hoặc Hugging Face. Supabase RLS giới hạn lịch sử và ảnh riêng tư theo `auth.uid()`.
 
 ## Chạy kiểm tra tĩnh cục bộ
@@ -30,6 +33,7 @@ Kiểm tra cú pháp không gọi network hoặc inference:
 
 ```powershell
 node --check .\assets\app.js
+node --test .\test\*.test.mjs
 node --check .\assets\quota.js
 node --check .\assets\auth.js
 node --check .\assets\supabase-auth.js
