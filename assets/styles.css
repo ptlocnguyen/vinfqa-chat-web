@@ -858,7 +858,7 @@ img { max-width: 100%; }
 }
 
 @media (max-width: 900px) {
-  .topbar { gap: 8px; }
+  .topbar { grid-template-columns: auto auto minmax(72px, 1fr) auto; gap: 8px; }
 }
 
 @media (max-width: 700px) {
