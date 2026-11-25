@@ -14,15 +14,15 @@ Frontend HTML/CSS/JavaScript thuần cho SSRC v04, Extended 4B và M7 7B multi-i
 - `assets/quota.js`: đọc quota tài khoản demo qua `/quota` mỗi 120 giây.
 - `assets/styles.css`: responsive, dark/light theme và trạng thái quota.
 
-## Trạng thái source hiện tại
+## Trạng thái production — 2026-11-25
 
-`config.js` đang trỏ tới `https://vinfqa-public-gateway.ptlocnguyen.workers.dev` và có Turnstile site key cho `ptlocnguyen.github.io`. Đây không phải bằng chứng rằng bản GitHub Pages hoặc Worker đang chạy đúng version mới nhất; cần kiểm tra sau khi deploy.
+Production đang chạy frontend commit `6472c2052a73f58557b35c42a25d9b9d0a1680fc` trên `https://ptlocnguyen.github.io/vinfqa-chat-web/`; GitHub Pages workflow run `45545761595` đã hoàn tất thành công. Gateway Worker production version là `bb8379fc-efe2-49ce-93f9-8bd4dee615ec`, được triển khai từ Gateway commit `7c2d41ca0e50b4877c4f0233fc2d357c944b1a29`. Extended/M7 Hugging Face Space revision là `5f62891ce2ee42a36c18739554e0c56a380cd5ae`. Các giá trị này ghi nhận bản phát hành đã xác minh; không thay bằng HEAD mới hơn khi cần khôi phục.
 
 Luồng inference: trình duyệt gửi ảnh, câu hỏi, token Turnstile và JWT tùy chọn tới Cloudflare Worker. Worker xác minh và chuyển request tới private Hugging Face Space. Khi người dùng đăng nhập, Worker lưu câu hỏi, câu trả lời và provenance vào Supabase sau inference thành công. Ảnh chỉ được lưu vào bucket private khi người dùng chủ động bật “Lưu ảnh”; mặc định ảnh không được lưu. Lịch sử chat không được gửi làm prompt; ảnh vẫn đi qua Cloudflare/Hugging Face và có thể được Space lưu tạm. Không tải dữ liệu cá nhân hoặc nhạy cảm.
 
-Trong một tab, người dùng chọn hoặc kéo-thả bộ ảnh một lần khi bắt đầu cuộc trò chuyện; các câu tiếp theo tự dùng lại đúng bộ ảnh và thứ tự đó. Ảnh bị khóa sau câu hỏi đầu tiên. Persistence nhiều ảnh vẫn bị khóa cho đến khi migration Supabase riêng được duyệt; S3 một ảnh giữ hành vi cũ.
+Trong một tab, người dùng chọn hoặc kéo-thả bộ ảnh một lần khi bắt đầu cuộc trò chuyện; các câu tiếp theo tự dùng lại đúng bộ ảnh và thứ tự đó. Ảnh bị khóa sau câu hỏi đầu tiên. M7 hiện chỉ lưu lịch sử trong tab, chưa đồng bộ hội thoại hoặc ảnh nhiều ảnh lên Supabase. Migration Supabase nhiều ảnh chưa được áp dụng; lịch sử S3 một ảnh giữ hành vi cũ.
 
-Bộ chọn độ dài luôn mặc định 32 tokens (SSRC v04). Hai mức 64/128 chỉ được bật khi `EXTENDED_DEMO_UI_ENABLED` cho phép hiển thị và `/health` của gateway đồng thời quảng bá capability Extended đã cấu hình. Frontend không tự fallback một yêu cầu Extended sang v04.
+Bộ chọn độ dài mặc định 32 tokens. 32 đi tới SSRC v04; 64/128 đi tới Extended Demo; frontend không tự fallback Extended sang v04. M7 nhận 2–4 ảnh theo thứ tự và dùng cố định 96 tokens.
 
 Tài khoản chỉ hoạt động khi `SUPABASE_URL` và `SUPABASE_PUBLISHABLE_KEY` được cấu hình ở cả frontend và Worker. Mặc định session nằm trong `sessionStorage`; tùy chọn “Ghi nhớ thiết bị này” dùng `localStorage`. Mật khẩu được gửi thẳng tới Supabase Auth qua HTTPS, không đi qua Worker hoặc Hugging Face. Supabase RLS giới hạn lịch sử và ảnh riêng tư theo `auth.uid()`.
 
@@ -54,5 +54,26 @@ node --check .\assets\reset-password.js
 - Mỗi câu hỏi là một inference độc lập với ảnh hiện tại.
 - UI giới hạn ảnh 8 MiB, 12 megapixel và câu hỏi 1.000 ký tự; gateway kiểm lại phía server.
 - Client dừng chờ sau 4 phút; gateway có các timeout upstream riêng và lease tối đa 300 giây.
-- Output model được giới hạn 32 token và có thể bị cắt.
+- Output SSRC v04 được giới hạn 32 token; Extended hỗ trợ 32/64/128; M7 cố định 96 token. Có thể gặp output chạm giới hạn.
 - Thanh ZeroGPU hiển thị quota của tài khoản demo, không phải hạn mức riêng của từng khách truy cập.
+
+## Ghi nhận phát hành PRODUCTION_RELEASED
+
+- Luồng 32 tokens → Space SSRC v04 bất biến, API `generate` với hợp đồng `[image, question]`.
+- Luồng 64/128 → Space Extended, API `generate` với `[image, question, max_new_tokens]`.
+- Luồng M7 → cùng Space Extended, API `generate_multi`, 2–4 ảnh có thứ tự, model `Qwen/Qwen2.5-VL-7B-Instruct` revision `cc594898137f460bfe9f0759e9844b3ce807cfb5` và adapter NB136.
+- Artifact M7: private repo revision `a3c1de52625fb5ce6d810c8bccfecef6bb55c013`; adapter SHA-256 `78065f44555a6fbee907400c61fe6e6121ac31f70b5dc4468964634b103eb131`.
+- Ba production smoke test dùng ảnh tổng hợp nguyên gốc đều PASS: Extended@64 trả `20` (3/64 tokens); M7 hai ảnh trả `30` (3/96); M7 bốn ảnh trả `41` (3/96). Thời gian giao diện lần lượt khoảng 1,633; 1,267; 1,515 giây theo định dạng thập phân `vi-VN`. Quota HF ghi nhận giảm 291→279 giây trong chiến dịch.
+- Đây là kiểm tra routing/inference trên ví dụ tổng hợp, không phải đánh giá benchmark hay bằng chứng tăng chất lượng VQA. UI hiển thị model và số token; JSON provenance chi tiết vẫn thu gọn trong ảnh kiểm thử nên các trường ẩn chưa được đối chiếu độc lập. VRAM/RAM thực tế không được đo.
+- Không bật dịch vụ GPU trả phí hoặc đổi billing. Đây là mức dùng ZeroGPU miễn phí trong quota được cấp; không bảo đảm quota luôn sẵn có hoặc không bị thay đổi theo chính sách Hugging Face. Quota tài khoản chia sẻ còn 279/300 giây ở lần đọc sau smoke tests (reset dự kiến `2026-11-25T17:38:49Z`). Giới hạn Gateway hiện tại: một inference đồng thời toàn cục; Extended tối đa 4 lượt/ngày toàn hệ thống và 1 lượt/IP cho mỗi mức token; M7 tối đa 2 lượt/ngày toàn hệ thống và 2 lượt/IP. Quota HF vẫn là giới hạn upstream.
+
+## Rollback
+
+1. Tắt M7 trước bằng cách đặt `M7_DEMO_ENABLED=false` cho Worker production; xác nhận `/health` báo M7 disabled và 32/64/128 vẫn bật. Trong `wrangler.jsonc`, M7 hiện mặc định `false`; production đã được bật bằng override triển khai.
+2. Nếu cần khôi phục toàn bộ Worker về trạng thái trước khi bật M7, dùng Cloudflare version `a6f3341f-334c-481a-8173-75eefc12e8e4`; sau rollback kiểm tra Extended vẫn bật và M7 đã tắt.
+3. Nếu cần khôi phục frontend, dùng GitHub Pages deployment/run `45382840715` của commit `e24cfb082f6cfeffc63c5829e3e13c808882c3c6`, hoặc revert commit multi-model trên `main` rồi chờ Pages deploy.
+4. Không rollback hay chỉnh Space SSRC v04. Chỉ rollback Space Extended nếu lỗi thuộc backend; revision trước multi-model là `ff784e9cd72c032e42c8dbf2bd231139e65c09c2`. Worker rollback không tự hoàn tác quota, Durable Object state hoặc Secrets.
+
+## Bổ sung model/checkpoint hoặc pipeline mới
+
+Tạo checkpoint trong private artifact repository riêng, cố định immutable revision và SHA-256 manifest, rồi xác minh quyền đọc bằng token read-only riêng. Đăng ký model ID/API contract và provenance riêng; thêm load/public gate độc lập để có thể nạp kiểm tra kín trước khi công bố. Kiểm tra tương thích prompt/preprocessing, RAM/VRAM, thời gian khởi động, concurrency chung và quota trước khi phát hành. Bổ sung mock tests cho routing, validation, timeout, provenance và rollback; chỉ chạy số lượt GPU tối thiểu đã được duyệt. Không ghi đè checkpoint cũ; không áp dụng migration Supabase cho đến khi được phê duyệt riêng.
