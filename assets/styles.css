@@ -583,6 +583,7 @@ img { max-width: 100%; }
 
 .msg-label { margin-bottom: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .msg-body { overflow-wrap: anywhere; font-size: 15px; line-height: 1.75; white-space: pre-wrap; }
+.message-note { margin-top: 10px; padding: 8px 11px; border: 1px solid var(--stroke); border-radius: 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 
 .message-image {
   display: block;
@@ -669,6 +670,10 @@ img { max-width: 100%; }
 }
 
 .composer-main textarea::placeholder { color: var(--soft); }
+.model-selector-row { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; }
+.model-selector-row label { display: flex; min-width: 0; align-items: center; gap: 8px; color: var(--soft); font-size: 12px; font-weight: 700; }
+.model-selector-row select { min-width: 210px; max-width: 100%; padding: 7px 30px 7px 9px; border: 1px solid var(--stroke); border-radius: 9px; background: var(--panel-2); color: var(--text); font: inherit; }
+.model-capability-status { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .token-selector {
   display: grid;
   min-width: 0;
@@ -781,6 +786,13 @@ img { max-width: 100%; }
   border-radius: 12px;
   background: #172e2b;
 }
+.image-chip-list { width: 100%; flex-wrap: wrap; align-items: stretch; }
+.selected-image-card { display: grid; min-width: 180px; flex: 1 1 210px; grid-template-columns: 54px minmax(0,1fr) auto; align-items: center; gap: 9px; padding: 6px; border: 1px solid rgb(255 255 255 / 7%); border-radius: 10px; }
+.selected-image-index { color: var(--accent); font-size: 11px; font-weight: 800; }
+.image-order-actions { display: flex; flex-direction: column; gap: 2px; }
+.image-order-actions button { width: 26px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
+.image-order-actions button:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
+.image-order-actions button:disabled { opacity: .3; }
 
 .image-chip img { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; background: white; }
 .image-chip-preview { display: block; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: zoom-in; }
@@ -1047,8 +1059,12 @@ img { max-width: 100%; }
   .message.assistant .message-content { max-width: 100%; }
   .msg-body { font-size: 14px; }
 
-  .composer-wrap { width: calc(100% - 20px); padding: 9px 0 10px; }
-  .composer { padding: 11px 12px; border-radius: 15px; }
+  .composer-wrap { width: calc(100% - 20px); min-width: 0; max-width: calc(100vw - 20px); padding: 9px 0 10px; }
+  .composer { min-width: 0; padding: 11px 12px; border-radius: 15px; }
+  .model-selector-row { min-width: 0; flex-wrap: wrap; gap: 6px; }
+  .model-selector-row label { width: 100%; min-width: 0; }
+  .model-selector-row select { width: 100%; min-width: 0; }
+  .model-capability-status { width: 100%; padding-left: 2px; white-space: normal; }
   .token-selector { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
   .token-selector legend { grid-column: 1 / -1; padding: 0 2px 2px; }
   .token-option span { min-height: 36px; padding-inline: 5px; }

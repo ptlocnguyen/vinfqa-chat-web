@@ -11,8 +11,9 @@ export function supportedTokenLimits(healthPayload, extendedUiEnabled = false) {
 
 export function provenancePresentation(metadata = {}) {
   const isExtended = metadata?.inference_mode === 'EXTENDED_DEMO';
-  const modeLabel = isExtended ? 'Extended Demo' : 'SSRC v04';
-  const limit = ALLOWED_MAX_NEW_TOKENS.includes(metadata?.max_new_tokens)
+  const isM7 = metadata?.inference_mode === 'M7_MULTI_IMAGE_DEMO';
+  const modeLabel = isM7 ? 'M7 Multi-image' : (isExtended ? 'Extended Demo' : 'SSRC v04');
+  const limit = (isM7 && metadata?.max_new_tokens===96) ? 96 : ALLOWED_MAX_NEW_TOKENS.includes(metadata?.max_new_tokens)
     ? metadata.max_new_tokens
     : (isExtended ? null : DEFAULT_MAX_NEW_TOKENS);
   const outputTokens = Number.isInteger(metadata?.output_tokens) ? metadata.output_tokens : null;
@@ -24,5 +25,5 @@ export function provenancePresentation(metadata = {}) {
   const truncation = metadata?.possible_truncation === true
     ? `Có thể bị cắt ở ${limit ?? 'giới hạn chưa xác minh'} tokens`
     : (metadata?.possible_truncation === false ? '' : 'Trạng thái cắt: NOT_VERIFIED');
-  return {isExtended,modeLabel,limit,outputTokens,verified,tokenLabel,truncation};
+  return {isExtended,isM7,modeLabel,limit,outputTokens,verified,tokenLabel,truncation};
 }

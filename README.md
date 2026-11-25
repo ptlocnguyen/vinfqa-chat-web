@@ -1,13 +1,14 @@
-# VietInfographicQA Chat — GitHub Pages
+# VietInfographicQA Multi-model Chat — GitHub Pages
 
-Frontend công khai cho demo S3-QLoRA SSRC v04. Dự án dùng HTML/CSS/JavaScript thuần, không có build step, package npm, checkpoint hoặc Hugging Face token.
+Frontend HTML/CSS/JavaScript thuần cho SSRC v04, Extended 4B và M7 7B multi-image. M7 chỉ xuất hiện khi capability đã được Gateway xác minh; source frontend không chứa checkpoint hoặc Hugging Face token.
 
 ## Cấu trúc
 
 - `index.html`: giao diện, thông báo dữ liệu, Turnstile và Content Security Policy.
 - `login.html`, `register.html`, `reset-password.html`: Supabase Auth email/password, khôi phục mật khẩu và validation phía trình duyệt.
 - `config.js`: chỉ chứa Worker URL, Turnstile site key, Supabase URL và publishable key công khai.
-- `assets/app.js`: chat theo mô hình một ảnh cố định cho mỗi cuộc trò chuyện, đồng bộ lịch sử khi đăng nhập, kiểm ảnh, `/health`, Turnstile và `/infer`.
+- `assets/app.js`: chat theo model capability, khóa 1 ảnh cho S3 hoặc 2–4 ảnh có thứ tự cho M7, đồng bộ lịch sử, Turnstile và `/infer`/`/infer-multi`.
+- `assets/model-registry.mjs`: ánh xạ registry từ `/health` thành các lựa chọn UI; model bị tắt không thể được chọn.
 - `assets/inference-mode.mjs`: chuẩn hóa capability 32/64/128 và cách trình bày provenance SSRC v04/Extended Demo.
 - `assets/auth.js`, `assets/supabase-auth.js`, `assets/auth.css`: giao diện tài khoản, session/refresh token và kết nối Supabase Auth.
 - `assets/quota.js`: đọc quota tài khoản demo qua `/quota` mỗi 120 giây.
@@ -19,7 +20,7 @@ Frontend công khai cho demo S3-QLoRA SSRC v04. Dự án dùng HTML/CSS/JavaScri
 
 Luồng inference: trình duyệt gửi ảnh, câu hỏi, token Turnstile và JWT tùy chọn tới Cloudflare Worker. Worker xác minh và chuyển request tới private Hugging Face Space. Khi người dùng đăng nhập, Worker lưu câu hỏi, câu trả lời và provenance vào Supabase sau inference thành công. Ảnh chỉ được lưu vào bucket private khi người dùng chủ động bật “Lưu ảnh”; mặc định ảnh không được lưu. Lịch sử chat không được gửi làm prompt; ảnh vẫn đi qua Cloudflare/Hugging Face và có thể được Space lưu tạm. Không tải dữ liệu cá nhân hoặc nhạy cảm.
 
-Trong một tab, người dùng chỉ chọn hoặc kéo-thả ảnh một lần khi bắt đầu cuộc trò chuyện; các câu tiếp theo tự dùng lại ảnh đó. Ảnh bị khóa sau câu hỏi đầu tiên. Phiên đã đồng bộ chỉ có thể tiếp tục sau khi tải lại trang nếu ảnh đã được người dùng cho phép lưu riêng tư; phiên không có ảnh được giữ ở chế độ chỉ đọc.
+Trong một tab, người dùng chọn hoặc kéo-thả bộ ảnh một lần khi bắt đầu cuộc trò chuyện; các câu tiếp theo tự dùng lại đúng bộ ảnh và thứ tự đó. Ảnh bị khóa sau câu hỏi đầu tiên. Persistence nhiều ảnh vẫn bị khóa cho đến khi migration Supabase riêng được duyệt; S3 một ảnh giữ hành vi cũ.
 
 Bộ chọn độ dài luôn mặc định 32 tokens (SSRC v04). Hai mức 64/128 chỉ được bật khi `EXTENDED_DEMO_UI_ENABLED` cho phép hiển thị và `/health` của gateway đồng thời quảng bá capability Extended đã cấu hình. Frontend không tự fallback một yêu cầu Extended sang v04.
 

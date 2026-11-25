@@ -1,5 +1,6 @@
 import {accountLabel, authConfigured, fetchPrivateImage, getSession, signOut} from './supabase-auth.js';
 import {DEFAULT_MAX_NEW_TOKENS, provenancePresentation, supportedTokenLimits as readSupportedTokenLimits} from './inference-mode.mjs';
+import {UI_MODEL_IDS,modelForSession,uiModelCapabilities,validateImageCount} from './model-registry.mjs';
 
 const cfg = window.VINFQA_PUBLIC_CONFIG || {};
 const $ = (selector) => document.querySelector(selector);
@@ -15,12 +16,12 @@ const state = {
   healthAttempt: 0, healthTimer: null, turnstileStartedAt: 0, turnstileTimer: null,
   authSession: null,
   supportedTokenLimits: [DEFAULT_MAX_NEW_TOKENS],
+  models:uiModelCapabilities(null),
 };
 const refs = {
   sidebar: $('#sidebar'), chatList: $('#chatList'), empty: $('#emptyState'),
   messages: $('#messages'), question: $('#questionInput'), imageInput: $('#imageInput'),
-  imageChip: $('#imageChip'), preview: $('#previewImage'), imageName: $('#imageName'),
-  imageMeta: $('#imageMeta'), error: $('#errorNotice'), send: $('#sendButton'),
+  imageChip: $('#imageChip'), error: $('#errorNotice'), send: $('#sendButton'),
   turnstile: $('#turnstileBox'), proof: $('#proofRow'), status: $('#serviceStatus'), refreshCaptcha: $('#refreshCaptcha'),
   verifyTrigger: $('#openVerification'), verifyTriggerLabel: $('#verificationTriggerLabel'), verificationShield: $('#verificationShield'),
   sidebarBackdrop: $('#sidebarBackdrop'), openSidebar: $('#openSidebar'), closeSidebar: $('#closeSidebar'),
@@ -30,6 +31,8 @@ const refs = {
   imageViewer: $('#imageViewer'), imageViewerContent: $('#imageViewerContent'), imageViewerMeta: $('#imageViewerMeta'),
   tokenInputs: [...document.querySelectorAll('input[name="max_new_tokens"]')],
   tokenStatus: $('#tokenCapabilityStatus'), composerFootnote: $('#composerFootnote'),
+  modelSelector:$('#modelSelector'),modelStatus:$('#modelCapabilityStatus'),tokenSelector:$('#tokenSelector'),
+  activeModelTitle:$('#activeModelTitle'),activeModelVersion:$('#activeModelVersion'),
 };
 
 const htmlElement = (tag, cls, text) => {
@@ -40,7 +43,9 @@ const htmlElement = (tag, cls, text) => {
 };
 const current = () => state.sessions.find((s) => s.id === state.active);
 const sessionLocked = (session) => Boolean(session?.messages?.some((message) => message.role === 'user'));
-const selectedMaxNewTokens = () => Number(refs.tokenInputs.find((input) => input.checked)?.value || DEFAULT_MAX_NEW_TOKENS);
+const imagesOf = (session) => Array.isArray(session?.images) ? session.images : (session?.file ? [{file:session.file,url:session.url}] : []);
+const currentModel = () => modelForSession(state.models,current()?.modelId || UI_MODEL_IDS.V04);
+const selectedMaxNewTokens = () => currentModel()?.model_id === UI_MODEL_IDS.M7 ? 96 : Number(refs.tokenInputs.find((input) => input.checked)?.value || DEFAULT_MAX_NEW_TOKENS);
 function showError(message = '') {
   refs.error.textContent = message;
   refs.error.hidden = !message;
@@ -60,7 +65,7 @@ function updateAccountUI() {
 }
 function releaseSessionImages(sessions = state.sessions) {
   for (const session of sessions) {
-    if (session.url) URL.revokeObjectURL(session.url);
+    for (const image of imagesOf(session)) if (image.url) URL.revokeObjectURL(image.url);
   }
 }
 async function hydratePrivateImages(sessions) {
@@ -74,8 +79,8 @@ async function hydratePrivateImages(sessions) {
       if (sessions !== state.sessions || state.authSession?.access_token !== authSession.access_token) return;
       const extension = attachment.attachmentPath.split('.').pop() || 'png';
       const fileName = `Ảnh đã lưu.${extension}`;
-      session.file = new File([blob],fileName,{type:blob.type});
-      session.url = URL.createObjectURL(blob);
+      const file = new File([blob],fileName,{type:blob.type});
+      session.images = [{file,url:URL.createObjectURL(blob)}];
       session.imageStored = true;
     } finally { session.imageHydrating = false; }
   }));
@@ -107,9 +112,13 @@ async function loadRemoteHistory() {
         meta:message.role === 'assistant' && message.metadata && typeof message.metadata === 'object' ? message.metadata : null,
         attachmentPath:message.role === 'user' && typeof message.attachment_path === 'string' ? message.attachment_path : '',
       })) : [];
+      const assistantMeta=messages.find(message=>message.role==='assistant'&&message.meta)?.meta;
+      const historicalModel=assistantMeta?.model_id===UI_MODEL_IDS.M7 ? UI_MODEL_IDS.M7 :
+        (assistantMeta?.inference_mode==='EXTENDED_DEMO' ? UI_MODEL_IDS.EXTENDED : UI_MODEL_IDS.V04);
       return {
         id:conversation.id, title:conversation.title || 'Cuộc trò chuyện mới', messages,
-        file:null,url:'',remote:true,imageHydrating:messages.some((message) => message.attachmentPath),
+        images:[],modelId:historicalModel,
+        remote:true,imageHydrating:messages.some((message) => message.attachmentPath),
       };
     });
     releaseSessionImages(previousSessions);
@@ -123,7 +132,7 @@ async function loadRemoteHistory() {
   }
 }
 function addSession() {
-  const session = { id: crypto.randomUUID(), title: 'Cuộc trò chuyện mới', messages: [], file: null, url: '', imageStored:false, imageSavePreference:false };
+  const session = { id: crypto.randomUUID(), title: 'Cuộc trò chuyện mới', messages: [], images: [], modelId:UI_MODEL_IDS.V04, imageStored:false, imageSavePreference:false };
   state.sessions.unshift(session);
   while (state.sessions.length > MAX_SESSIONS) {
     const removed = state.sessions.pop();
@@ -150,52 +159,91 @@ function render() {
   refs.messages.replaceChildren();
   if (sessionLocked(session)) refs.messages.append(createSessionImageNode(session));
   for (const msg of session.messages) refs.messages.append(createMessageNode(msg));
+  syncModelControls();
   syncImageChip();
   updateSendState();
   scrollToBottom();
 }
+function syncModelControls() {
+  const session=current();const model=currentModel();
+  for(const option of refs.modelSelector.options){
+    const capability=state.models.find(item=>item.model_id===option.value);
+    option.disabled=!capability?.enabled;
+    option.textContent=capability?.label+(capability?.enabled?'':' — Chưa khả dụng');
+  }
+  refs.modelSelector.value=model?.model_id || UI_MODEL_IDS.V04;
+  const isM7=model?.model_id===UI_MODEL_IDS.M7;
+  refs.activeModelTitle.textContent=isM7?'M7 Multi-image Chat':(model?.model_id===UI_MODEL_IDS.EXTENDED?'S3 Extended Chat':'S3-QLoRA Chat');
+  refs.activeModelVersion.textContent=isM7?'7B':'4B';
+  refs.imageInput.multiple=isM7;
+  refs.tokenSelector.hidden=isM7;
+  refs.tokenSelector.disabled=isM7||!model?.enabled||model?.model_id===UI_MODEL_IDS.V04;
+  refs.tokenSelector.classList.toggle('token-selector-disabled',refs.tokenSelector.disabled);
+  const isExtended=model?.model_id===UI_MODEL_IDS.EXTENDED;
+  refs.modelStatus.textContent=isM7
+    ? (model.enabled?'2–4 ảnh theo thứ tự · cố định 96 tokens':'M7 đang bị khóa bởi Gateway')
+    :(isExtended?(model.enabled?'Một ảnh · 64/128 tokens':'Extended đang bị khóa bởi Gateway'):'Một ảnh · cố định 32 tokens');
+  const dropTitle=refs.composer.querySelector('.drop-overlay strong');
+  const dropHint=refs.composer.querySelector('.drop-overlay small');
+  if(dropTitle)dropTitle.textContent=isM7?'Thả 2–4 ảnh theo đúng thứ tự':'Thả ảnh để bắt đầu phiên';
+  if(dropHint)dropHint.textContent=isM7?'PNG, JPG hoặc WebP · tối đa 8 MB/ảnh, 24 MB tổng':'PNG, JPG hoặc WebP · tối đa 8 MB';
+  if(session)session.modelId=model?.model_id || UI_MODEL_IDS.V04;
+}
 function syncTokenControls() {
+  const model=currentModel();
+  if(model?.model_id===UI_MODEL_IDS.M7){
+    refs.tokenStatus.textContent='M7 dùng giới hạn cố định 96 tokens.';
+    refs.composerFootnote.textContent='2–4 ảnh cố định theo thứ tự cho mỗi cuộc trò chuyện · M7: tối đa 96 tokens';
+    return;
+  }
+  const allowed=model?.enabled ? model.max_new_tokens : [];
   const selected = selectedMaxNewTokens();
-  if (!state.supportedTokenLimits.includes(selected)) {
-    const defaultInput = refs.tokenInputs.find((input) => Number(input.value) === DEFAULT_MAX_NEW_TOKENS);
-    if (defaultInput) defaultInput.checked = true;
+  if (!allowed.includes(selected)) {
+    const firstInput = refs.tokenInputs.find((input) => Number(input.value) === allowed[0]);
+    if (firstInput) firstInput.checked = true;
   }
   for (const input of refs.tokenInputs) {
-    const value = Number(input.value); const supported = state.supportedTokenLimits.includes(value);
+    const value = Number(input.value); const supported = allowed.includes(value);
     input.disabled = state.busy || !supported;
     const detail = input.nextElementSibling?.querySelector('small');
     if (detail && value !== DEFAULT_MAX_NEW_TOKENS)
       detail.textContent = supported ? 'Extended Demo' : 'Extended · Chưa khả dụng';
   }
-  const extendedAvailable = state.supportedTokenLimits.includes(64) && state.supportedTokenLimits.includes(128);
-  refs.tokenStatus.textContent = extendedAvailable
-    ? 'Extended Demo khả dụng với giới hạn 64 và 128 tokens.'
-    : 'Extended Demo chưa khả dụng. Giới hạn hiện tại là 32 tokens.';
+  refs.tokenStatus.textContent = model?.model_id===UI_MODEL_IDS.EXTENDED
+    ? (model.enabled?'Extended Demo khả dụng với 64 và 128 tokens.':'Extended Demo chưa khả dụng.')
+    : 'SSRC v04 dùng giới hạn cố định 32 tokens.';
+  if(model?.model_id===UI_MODEL_IDS.V04){
+    const v04Input=refs.tokenInputs.find(input=>Number(input.value)===32);if(v04Input)v04Input.checked=true;
+  }
   const active = selectedMaxNewTokens();
   refs.composerFootnote.textContent = `Một ảnh cố định cho mỗi cuộc trò chuyện · Ảnh không được lưu mặc định · ${active === 32 ? 'SSRC v04' : 'Extended Demo'}: tối đa ${active} tokens`;
 }
 function createSessionImageNode(session) {
-  if (!session.file || !session.url) {
+  const images=imagesOf(session);
+  if (!images.length) {
     const text = session.imageHydrating
       ? 'Đang tải ảnh riêng tư của cuộc trò chuyện…'
       : 'Ảnh của cuộc trò chuyện này không được lưu. Hãy tạo cuộc trò chuyện mới để tiếp tục hỏi trên một ảnh khác.';
     return htmlElement('div','session-image-missing',text);
   }
-  const button = htmlElement('button','session-image-context');
-  button.type = 'button'; button.title = 'Mở ảnh kích thước lớn';
-  const image = htmlElement('img'); image.src = session.url; image.alt = '';
-  const copy = htmlElement('span','session-image-copy');
-  copy.append(htmlElement('strong','',session.file.name),htmlElement('small','', 'Ảnh cố định của cuộc trò chuyện · Nhấn để xem lớn'));
-  button.append(image,copy,htmlElement('span','session-image-action','Xem ảnh'));
-  button.onclick = () => openImageViewer(session);
-  return button;
+  const group=htmlElement('div','session-image-gallery');
+  images.forEach((item,index)=>{
+    const button = htmlElement('button','session-image-context');
+    button.type = 'button'; button.title = `Mở ảnh ${index+1} kích thước lớn`;
+    const image = htmlElement('img'); image.src = item.url; image.alt = '';
+    const copy = htmlElement('span','session-image-copy');
+    copy.append(htmlElement('strong','',`Ảnh ${index+1}: ${item.file.name}`),htmlElement('small','', 'Ảnh cố định · Nhấn để xem lớn'));
+    button.append(image,copy,htmlElement('span','session-image-action','Xem ảnh'));
+    button.onclick = () => openImageViewer(session,index);group.append(button);
+  });return group;
 }
 function createMessageNode(msg) {
   const wrap = htmlElement('article', `message ${msg.role}`);
   if (msg.role === 'assistant') wrap.append(htmlElement('div', 'bot-avatar', 'V'));
   const content = htmlElement('div', 'message-content');
-  if (msg.role === 'assistant') content.append(htmlElement('div', 'msg-label', 'S3-QLoRA · Trợ lý infographic'));
+  if (msg.role === 'assistant') content.append(htmlElement('div', 'msg-label', msg.meta?.model_id===UI_MODEL_IDS.M7?'M7 QLoRA 7B · Trợ lý multi-image':'S3-QLoRA · Trợ lý infographic'));
   content.append(htmlElement('div', 'msg-body', msg.text));
+  if (msg.notice) content.append(htmlElement('div', 'message-note', msg.notice));
   if (msg.loading) {
     const wait = htmlElement('div', 'typing');
     wait.append(htmlElement('span', '', 'Đang đợi ZeroGPU và suy luận'));
@@ -220,33 +268,42 @@ function createMessageNode(msg) {
   wrap.append(content); return wrap;
 }
 function scrollToBottom() { requestAnimationFrame(() => { refs.messages.scrollTop = refs.messages.scrollHeight; }); }
-function openImageViewer(session = current()) {
-  if (!session?.url || !session?.file) return;
-  refs.imageViewerContent.src = session.url;
-  refs.imageViewerMeta.textContent = `${session.file.name} · ${(session.file.size/1024/1024).toFixed(2)} MB`;
+function openImageViewer(session = current(),index=0) {
+  const item=imagesOf(session)[index];if(!item)return;
+  refs.imageViewerContent.src = item.url;
+  refs.imageViewerMeta.textContent = `Ảnh ${index+1} · ${item.file.name} · ${(item.file.size/1024/1024).toFixed(2)} MB`;
   if (!refs.imageViewer.open) refs.imageViewer.showModal();
 }
 function syncImageChip() {
-  const session = current(); const exists = Boolean(session?.file); const locked = sessionLocked(session);
+  const session = current(); const images=imagesOf(session);const exists = images.length>0; const locked = sessionLocked(session);
   refs.imageChip.hidden = !exists || locked;
   refs.attachButton.hidden = locked;
   refs.inputHint.hidden = locked;
   refs.sessionLock.hidden = !locked || !exists;
   refs.saveImageOption.hidden = !state.authSession || locked || !exists;
+  if(currentModel()?.model_id===UI_MODEL_IDS.M7)refs.saveImageOption.hidden=true;
   refs.composer.classList.toggle('image-locked',locked);
-  if (exists && !locked) {
-    refs.preview.src = session.url;
-    refs.imageName.textContent = session.file.name;
-    refs.imageMeta.textContent = `${(session.file.size/1024/1024).toFixed(2)} MB · ${session.file.type.replace('image/','').toUpperCase()}`;
-  } else { refs.preview.removeAttribute('src'); }
+  refs.imageChip.replaceChildren();
+  if(!exists||locked)return;
+  images.forEach((item,index)=>{
+    const card=htmlElement('div','selected-image-card');
+    const preview=htmlElement('button','image-chip-preview');preview.type='button';preview.title=`Xem lớn ảnh ${index+1}`;
+    const thumbnail=htmlElement('img');thumbnail.src=item.url;thumbnail.alt=`Ảnh ${index+1}`;preview.append(thumbnail);preview.onclick=()=>openImageViewer(session,index);
+    const copy=htmlElement('div','image-chip-text');copy.append(htmlElement('span','selected-image-index',`Ảnh ${index+1}`),htmlElement('strong','',item.file.name),htmlElement('small','',`${(item.file.size/1024/1024).toFixed(2)} MB · ${item.file.type.replace('image/','').toUpperCase()}`));
+    const actions=htmlElement('div','image-order-actions');
+    for(const [label,delta] of [['↑',-1],['↓',1]]){const button=htmlElement('button','',label);button.type='button';button.disabled=index+delta<0||index+delta>=images.length;button.onclick=()=>moveImage(index,index+delta);actions.append(button);}
+    const remove=htmlElement('button','remove-image','✕');remove.type='button';remove.setAttribute('aria-label',`Bỏ ảnh ${index+1}`);remove.onclick=()=>removeSelectedImage(index);
+    actions.append(remove);card.append(preview,copy,actions);refs.imageChip.append(card);
+  });
 }
 function updateSendState() {
-  const session = current(); const unavailable = sessionLocked(session) && !session?.file;
-  const tokenLimitSupported = state.supportedTokenLimits.includes(selectedMaxNewTokens());
-  refs.send.disabled = state.busy || unavailable || !tokenLimitSupported || !state.configured || !state.serviceReady || !session?.file || !refs.question.value.trim() || !state.turnstileToken;
+  const session = current();const images=imagesOf(session);const model=currentModel(); const unavailable = sessionLocked(session) && !images.length;
+  const tokenLimitSupported = Boolean(model?.enabled&&model.max_new_tokens.includes(selectedMaxNewTokens()));
+  const imageCountReady=Boolean(model&&validateImageCount(model,images.length));
+  refs.send.disabled = state.busy || unavailable || !tokenLimitSupported || !state.configured || !state.serviceReady || !imageCountReady || !refs.question.value.trim() || !state.turnstileToken;
   refs.send.title = !state.configured ? 'Chưa cấu hình Worker API và Turnstile' : 'Gửi câu hỏi';
   refs.question.disabled = state.busy || unavailable;
-  refs.question.placeholder = unavailable ? 'Phiên này không còn ảnh để tiếp tục' : (sessionLocked(session) ? 'Hỏi tiếp về infographic này…' : 'Chọn một ảnh rồi đặt câu hỏi…');
+  refs.question.placeholder = unavailable ? 'Phiên này không còn ảnh để tiếp tục' : (sessionLocked(session) ? 'Hỏi tiếp về infographic này…' : (model?.model_id===UI_MODEL_IDS.M7?'Chọn 2–4 ảnh rồi đặt câu hỏi…':'Chọn một ảnh rồi đặt câu hỏi…'));
   refs.imageInput.disabled = state.busy || sessionLocked(session);
   syncTokenControls();
 }
@@ -257,16 +314,22 @@ async function checkImage(file) {
   const pixelCount = bitmap.width * bitmap.height; bitmap.close();
   if (pixelCount > 12_000_000) throw Error('Ảnh vượt quá 12 megapixel. Vui lòng giảm kích thước ảnh.');
 }
-async function chooseFile(file) {
-  if (!file) return;
+async function chooseFiles(files) {
+  const candidates=Array.from(files||[]);if(!candidates.length)return;
   try {
-    if (sessionLocked(current())) throw Error('Mỗi cuộc trò chuyện chỉ dùng một ảnh. Hãy tạo cuộc trò chuyện mới để đổi ảnh.');
-    await checkImage(file);
-    const session = current(); if (session.url) URL.revokeObjectURL(session.url);
-    session.file = file; session.url = URL.createObjectURL(file);
+    if (sessionLocked(current())) throw Error('Ảnh đã khóa cho phiên này. Hãy tạo cuộc trò chuyện mới để đổi ảnh.');
+    const session=current();const model=currentModel();const existing=imagesOf(session);
+    if(existing.length+candidates.length>model.image_max)throw Error(`Mô hình ${model.label} chỉ nhận tối đa ${model.image_max} ảnh.`);
+    for(const file of candidates)await checkImage(file);
+    const combinedBytes=[...(model.image_max===1?[]:existing),...candidates.map(file=>({file}))].reduce((sum,item)=>sum+item.file.size,0);
+    if(combinedBytes>24*1024*1024)throw Error('Tổng dung lượng ảnh vượt quá 24 MB. Vui lòng giảm kích thước ảnh.');
+    if(model.image_max===1)for(const item of existing)if(item.url)URL.revokeObjectURL(item.url);
+    session.images=[...(model.image_max===1?[]:existing),...candidates.map(file=>({file,url:URL.createObjectURL(file)}))];
     showError(); syncImageChip(); updateSendState();
   } catch (error) { showError(error.message || 'Không đọc được ảnh.'); }
 }
+function moveImage(from,to){const session=current();if(sessionLocked(session))return;const images=imagesOf(session);if(to<0||to>=images.length)return;const next=[...images];const [item]=next.splice(from,1);next.splice(to,0,item);session.images=next;syncImageChip();}
+function removeSelectedImage(index){const session=current();if(sessionLocked(session))return;const images=imagesOf(session);const [removed]=images.splice(index,1);if(removed?.url)URL.revokeObjectURL(removed.url);session.images=images;session.imageSavePreference=false;refs.saveImage.checked=false;syncImageChip();updateSendState();}
 function resetChallenge() {
   state.turnstileToken = '';
   setProofState('loading');
@@ -287,11 +350,11 @@ function retryLabel(value) {
   return ` Có thể thử lại sau khoảng ${Math.ceil(seconds/60)} phút.`;
 }
 async function send() {
-  const session = current(); const question = refs.question.value.trim();
-  if (!state.configured || state.busy || !session.file || !question || !state.turnstileToken) return;
+  const session = current(); const question = refs.question.value.trim();const images=imagesOf(session);const model=currentModel();
+  if (!state.configured || state.busy || !validateImageCount(model,images.length) || !question || !state.turnstileToken) return;
   const isFirstTurn = !sessionLocked(session);
   const maxNewTokens = selectedMaxNewTokens();
-  if (!state.supportedTokenLimits.includes(maxNewTokens)) {
+  if (!model.enabled||!model.max_new_tokens.includes(maxNewTokens)) {
     showError('Mức token đã chọn chưa được backend hỗ trợ.'); return;
   }
   let sessionExpired = false;
@@ -301,7 +364,7 @@ async function send() {
     sessionExpired = !state.authSession;
   }
   if (isFirstTurn) session.imageSavePreference = Boolean(state.authSession && refs.saveImage.checked);
-  const saveImageRequested = Boolean(state.authSession && session.imageSavePreference && !session.imageStored);
+  const saveImageRequested = Boolean(model.model_id!==UI_MODEL_IDS.M7&&state.authSession && session.imageSavePreference && !session.imageStored);
   showError(sessionExpired ? 'Phiên đăng nhập đã hết hạn. Lượt này sẽ không được đồng bộ vào tài khoản.' : '');
   state.busy = true; updateSendState();
   if (!session.messages.length) session.title = question.length > 37 ? question.slice(0,37) + '…' : question;
@@ -312,7 +375,10 @@ async function send() {
   const token = state.turnstileToken; state.turnstileToken = '';
   try {
     const body = new FormData();
-    body.append('image', session.file, session.file.name);
+    if(model.model_id===UI_MODEL_IDS.M7){
+      body.append('model_id',UI_MODEL_IDS.M7);
+      for(const item of images)body.append('images',item.file,item.file.name);
+    }else{body.append('model_id',model.model_id);body.append('image',images[0].file,images[0].file.name);}
     body.append('question', question);
     body.append('turnstile', token);
     if (maxNewTokens !== DEFAULT_MAX_NEW_TOKENS) body.append('max_new_tokens',String(maxNewTokens));
@@ -323,7 +389,7 @@ async function send() {
       body.append('assistant_message_id',assistant.id);
       if (saveImageRequested) body.append('save_image','true');
     }
-    const response = await fetch(cfg.API_BASE_URL.replace(/\/$/,'') + '/infer', {
+    const response = await fetch(cfg.API_BASE_URL.replace(/\/$/,'') + (model.model_id===UI_MODEL_IDS.M7?'/infer-multi':'/infer'), {
       method: 'POST', body,
       headers:state.authSession ? {'Authorization':`Bearer ${state.authSession.access_token}`} : {},
       signal: AbortSignal.timeout(INFERENCE_TIMEOUT_MS),
@@ -332,7 +398,7 @@ async function send() {
     try { payload = await response.json(); } catch { throw Error('Gateway trả về dữ liệu không hợp lệ.'); }
     if (!response.ok) {
       if (payload.code === 'EXTENDED_BACKEND_UNAVAILABLE') {
-        state.supportedTokenLimits = [DEFAULT_MAX_NEW_TOKENS]; syncTokenControls();
+        state.models=state.models.map(item=>item.model_id===UI_MODEL_IDS.EXTENDED?{...item,enabled:false}:item);syncModelControls();syncTokenControls();
       }
       const suffix = response.status === 429 ? retryLabel(response.headers.get('Retry-After')) : '';
       throw Error((payload.message || `Gateway từ chối (${response.status}).`) + suffix);
@@ -341,7 +407,9 @@ async function send() {
     assistant.text = typeof payload.answer === 'string' ? payload.answer : '';
     assistant.meta = payload.provenance || null;
     if (payload.image_saved === true) session.imageStored = true;
-    if (state.authSession && payload.history_saved === false)
+    if (payload.history_mode === 'LOCAL_ONLY')
+      assistant.notice = 'M7: cuộc trò chuyện chỉ được giữ trong tab này; chưa đồng bộ lên tài khoản.';
+    else if (state.authSession && payload.history_saved === false)
       showError('Đã nhận câu trả lời nhưng chưa đồng bộ được lượt chat vào tài khoản.');
     else if (saveImageRequested && payload.image_saved === false)
       showError('Đã đồng bộ câu hỏi và câu trả lời, nhưng ảnh chưa được lưu vào lịch sử.');
@@ -378,11 +446,13 @@ async function checkService(resetAttempts = false) {
     const data = await response.json();
     const ready = response.ok && data.status === 'ready';
     state.supportedTokenLimits = readSupportedTokenLimits(data,cfg.EXTENDED_DEMO_UI_ENABLED === true);
+    state.models=uiModelCapabilities(data);
+    syncModelControls();
     syncTokenControls();
     setServiceState(ready,ready ? ' Gateway sẵn sàng' : ' Đang khóa inference');
     if (!ready) scheduleHealthRetry();
   } catch {
-    state.supportedTokenLimits = [DEFAULT_MAX_NEW_TOKENS];syncTokenControls();
+    state.supportedTokenLimits = [DEFAULT_MAX_NEW_TOKENS];state.models=uiModelCapabilities(null);syncModelControls();syncTokenControls();
     setServiceState(false,' Gateway chưa sẵn sàng'); scheduleHealthRetry();
   }
 }
@@ -432,14 +502,14 @@ refs.question.addEventListener('input',()=>{resizeInput();updateSendState();});
 refs.question.addEventListener('keydown',(event)=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void send();}});
 refs.send.addEventListener('click',()=>void send());
 for (const input of refs.tokenInputs) input.addEventListener('change',()=>{showError();syncTokenControls();updateSendState();});
-refs.imageInput.addEventListener('change',(e)=>void chooseFile(e.target.files?.[0]));
-$('#openSelectedImage').onclick=()=>openImageViewer();
-$('#removeImage').onclick=()=>{
-  const session=current();
-  if(sessionLocked(session)){showError('Ảnh đã được khóa cho cuộc trò chuyện này. Hãy tạo cuộc trò chuyện mới để đổi ảnh.');return;}
-  if(session.url) URL.revokeObjectURL(session.url);
-  session.file=null;session.url='';session.imageSavePreference=false;refs.imageInput.value='';refs.saveImage.checked=false;syncImageChip();updateSendState();
-};
+refs.imageInput.addEventListener('change',(e)=>{void chooseFiles(e.target.files);e.target.value='';});
+refs.modelSelector.addEventListener('change',()=>{
+  const session=current();const next=refs.modelSelector.value;
+  if(next===session.modelId)return;
+  if((sessionLocked(session)||imagesOf(session).length)&&!confirm('Đổi mô hình sẽ bắt đầu cuộc trò chuyện mới để không trộn ảnh hoặc lịch sử. Tiếp tục?')){refs.modelSelector.value=session.modelId;return;}
+  if(sessionLocked(session)||imagesOf(session).length)addSession();
+  const target=current();target.modelId=next;syncModelControls();syncImageChip();syncTokenControls();updateSendState();showError();
+});
 $('#newChat').onclick=()=>{if(!state.busy){const defaultInput=refs.tokenInputs.find((input)=>Number(input.value)===DEFAULT_MAX_NEW_TOKENS);if(defaultInput)defaultInput.checked=true;addSession();refs.question.value='';resizeInput();showError();closeSidebar();}};
 function closeSidebar(restoreFocus = false){refs.sidebar.classList.remove('open');refs.sidebarBackdrop.hidden=true;if(restoreFocus)refs.openSidebar.focus();}
 refs.openSidebar.onclick=()=>{refs.sidebar.classList.add('open');refs.sidebarBackdrop.hidden=false;refs.closeSidebar.focus();};
@@ -486,7 +556,7 @@ refs.composer.addEventListener('drop',(event)=>{
   event.preventDefault();dragDepth=0;refs.composer.classList.remove('drag-active');
   if(state.busy)return;
   if(sessionLocked(current())){showError('Mỗi cuộc trò chuyện chỉ dùng một ảnh. Hãy tạo cuộc trò chuyện mới để đổi ảnh.');return;}
-  void chooseFile(event.dataTransfer.files?.[0]);
+  void chooseFiles(event.dataTransfer.files);
 });
 document.addEventListener('dragend',()=>{dragDepth=0;refs.composer.classList.remove('drag-active');});
 for (const link of [refs.accountLink,refs.sidebarLogin,refs.sidebarRegister]) {

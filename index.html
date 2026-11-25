@@ -6,10 +6,10 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; connect-src 'self' https://vinfqa-public-gateway.ptlocnguyen.workers.dev https://challenges.cloudflare.com https://*.supabase.co; frame-src https://challenges.cloudflare.com; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests" />
   <meta name="referrer" content="no-referrer" />
   <meta name="theme-color" content="#0e1117" />
-  <meta name="description" content="VietInfographicQA: hỏi đáp trên infographic tiếng Việt bằng S3-QLoRA SSRC v04." />
-  <title>VietInfographicQA · S3-QLoRA Chat</title>
+  <meta name="description" content="VietInfographicQA: nền tảng hỏi đáp infographic tiếng Việt với các mô hình 4B và multi-image 7B." />
+  <title>VietInfographicQA · Multi-model Chat</title>
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="./assets/styles.css?v=20261122-6" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20261125-1" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -37,7 +37,7 @@
     <main class="main-column">
       <header class="topbar">
         <button id="openSidebar" class="icon-btn menu-btn" aria-label="Mở thanh bên" title="Mở thanh bên">☰</button>
-        <div class="topbar-model"><strong>S3-QLoRA Chat</strong><span class="version">v04</span></div>
+        <div class="topbar-model"><strong id="activeModelTitle">S3-QLoRA Chat</strong><span id="activeModelVersion" class="version">4B</span></div>
         <section id="gpuQuota" class="gpu-quota-strip" data-state="loading" aria-label="Thời gian GPU miễn phí còn lại của tài khoản demo">
           <div class="gpu-quota-label"><span class="gpu-quota-indicator" aria-hidden="true"></span><strong>ZeroGPU demo</strong></div>
           <div class="gpu-quota-data"><strong id="gpuQuotaRemaining" aria-live="polite">Đang kiểm tra quota…</strong><strong id="gpuQuotaCompact" class="gpu-quota-compact">GPU --</strong><span id="gpuQuotaReset">Đang đọc từ Hugging Face</span></div>
@@ -53,7 +53,7 @@
           <div class="hero-logo">V<span class="hero-spark">✦</span></div>
           <p class="eyebrow">VIETINFOGRAPHICQA · SSRC 2026</p>
           <h1 id="heroTitle">Hỏi ảnh, <em>hiểu thông tin.</em></h1>
-          <p class="hero-description">Đính kèm một infographic và đặt câu hỏi bằng tiếng Việt. Hệ thống sẽ tự chọn nhánh S3-QLoRA phù hợp để trả lời.</p>
+          <p class="hero-description">Chọn mô hình, đính kèm infographic và đặt câu hỏi bằng tiếng Việt. S3 hỗ trợ một ảnh; M7 hỗ trợ chuỗi 2–4 ảnh theo đúng thứ tự.</p>
           <div class="examples" id="examples" aria-label="Câu hỏi gợi ý">
             <button type="button" data-prompt="Infographic này nói về chủ đề gì?"><strong>Tóm tắt nội dung</strong><small>Nắm nhanh chủ đề chính</small></button>
             <button type="button" data-prompt="Có bao nhiêu nội dung được liệt kê trong ảnh?"><strong>Đếm thông tin</strong><small>Thống kê các mục trong ảnh</small></button>
@@ -69,10 +69,14 @@
         <div id="errorNotice" class="error-notice" hidden role="alert"></div>
         <div class="composer" id="composer">
           <div class="drop-overlay" aria-hidden="true"><span>＋</span><strong>Thả ảnh để bắt đầu phiên</strong><small>PNG, JPG hoặc WebP · tối đa 8 MB</small></div>
-          <div id="imageChip" class="image-chip" hidden><button id="openSelectedImage" class="image-chip-preview" type="button" title="Xem ảnh lớn"><img id="previewImage" alt="Ảnh đang chọn cho cuộc trò chuyện"/></button><div class="image-chip-text"><strong id="imageName">Ảnh infographic</strong><small id="imageMeta"></small></div><button id="removeImage" class="remove-image" title="Bỏ ảnh" aria-label="Bỏ ảnh">✕</button></div>
+          <div id="imageChip" class="image-chip image-chip-list" hidden aria-label="Các ảnh đã chọn"></div>
           <div class="composer-main">
             <label class="sr-only" for="questionInput">Câu hỏi bằng tiếng Việt</label>
             <textarea id="questionInput" rows="1" maxlength="1000" placeholder="Hỏi bất cứ điều gì về infographic…"></textarea>
+          </div>
+          <div class="model-selector-row">
+            <label for="modelSelector"><span>Mô hình</span><select id="modelSelector" aria-describedby="modelCapabilityStatus"><option value="s3-v04-4b">Qwen3-VL-4B · SSRC v04</option><option value="s3-extended-4b" disabled>Qwen3-VL-4B · Extended — Chưa khả dụng</option><option value="m7-7b-nb136" disabled>M7 QLoRA 7B · Multi-image — Chưa khả dụng</option></select></label>
+            <span id="modelCapabilityStatus" class="model-capability-status" aria-live="polite">Một ảnh · 32/64/128 tokens</span>
           </div>
           <fieldset id="tokenSelector" class="token-selector" aria-describedby="tokenCapabilityStatus">
             <legend>Độ dài câu trả lời</legend>
@@ -82,7 +86,7 @@
           </fieldset>
           <span id="tokenCapabilityStatus" class="sr-only" aria-live="polite">Extended Demo chưa khả dụng. Giới hạn hiện tại là 32 tokens.</span>
           <div class="composer-bottom">
-            <div class="left-tools"><label id="attachButton" class="attach-button" for="imageInput" title="Chọn ảnh cho cuộc trò chuyện"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB</span><span id="sessionLockState" class="session-lock-state" hidden><span aria-hidden="true">◇</span> Đang dùng ảnh của phiên</span><label id="saveImageOption" class="save-image-option" title="Lưu ảnh trong kho riêng tư của tài khoản để tiếp tục phiên sau" hidden><input id="saveImage" type="checkbox"/><span>Lưu ảnh để tiếp tục sau</span></label></div>
+            <div class="left-tools"><label id="attachButton" class="attach-button" for="imageInput" title="Chọn ảnh cho cuộc trò chuyện"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB/ảnh</span><span id="sessionLockState" class="session-lock-state" hidden><span aria-hidden="true">◇</span> Đang dùng ảnh của phiên</span><label id="saveImageOption" class="save-image-option" title="Lưu ảnh trong kho riêng tư của tài khoản để tiếp tục phiên sau" hidden><input id="saveImage" type="checkbox"/><span>Lưu ảnh để tiếp tục sau</span></label></div>
             <button id="openVerification" class="verification-trigger" type="button"><span aria-hidden="true">✓</span><span id="verificationTriggerLabel">Xác minh</span></button>
             <button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>Gửi</button>
           </div>
@@ -95,7 +99,7 @@
   <dialog id="aboutDialog" class="about-dialog"><div class="dialog-top"><strong>Về VietInfographicQA</strong><button id="closeAbout" class="icon-btn" aria-label="Đóng">✕</button></div><p>Giao diện trò chuyện minh họa hệ S3-QLoRA trong paper SSRC v04. Backbone Qwen3-VL-4B-Instruct 4-bit NF4; router TF-IDF + LinearSVC chọn Frozen Image-span hoặc QLoRA Multi-span, Non-extractive, Question-span.</p><p>Không dùng lịch sử hội thoại để thay prompt; không hiển thị độ tin cậy chưa hiệu chuẩn. Suy luận có thể chờ GPU ZeroGPU và bị cắt ở 32 token.</p><p class="dialog-alert">Không tải lên ảnh chứa dữ liệu cá nhân hoặc thông tin nhạy cảm. Các ảnh gửi để suy luận sẽ đi qua Cloudflare Worker đến Hugging Face Space.</p><button id="understood" class="dialog-ok">Đã hiểu</button></dialog>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js?v=20261122-4"></script>
-  <script type="module" src="./assets/app.js?v=20261122-6"></script>
+  <script type="module" src="./assets/app.js?v=20261125-1"></script>
   <script type="module" src="./assets/quota.js?v=20261122-3"></script>
 </body>
 </html>
