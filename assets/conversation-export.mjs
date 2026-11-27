@@ -1,7 +1,8 @@
 const SAFE_PROVENANCE_KEYS = [
   'inference_mode','requested_max_new_tokens','max_new_tokens','output_tokens','route_predicted',
   'selected_branch','elapsed_seconds','possible_truncation','backend_revision','verification_status',
-  'status','model_id','image_count','request_id',
+  'status','model_id','image_count','request_id','base_model_id','base_model_revision',
+  'adapter_sha256','artifact_revision','input_tokens','error_code','http_status','timestamp','client_recorded_at',
 ];
 const SECRET_PATTERNS = [
   /\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi,
@@ -19,7 +20,7 @@ export function safeProvenance(meta) {
   if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null;
   const result = {};
   for (const key of SAFE_PROVENANCE_KEYS) {
-    if (Object.hasOwn(meta, key) && ['string','number','boolean'].includes(typeof meta[key])) result[key] = meta[key];
+    if (Object.hasOwn(meta, key) && ['string','number','boolean'].includes(typeof meta[key])) result[key] = typeof meta[key]==='string'?redactText(meta[key]).slice(0,160):meta[key];
   }
   return result;
 }
@@ -45,7 +46,7 @@ export function exportConversation(session, models, exportedAt = new Date().toIS
         provenance:safeProvenance(message.meta),
       })),
     },
-    privacy: {includes_image_bytes:false,includes_credentials:false},
+    privacy: {includes_image_bytes:false,includes_credentials:false,client_metadata_is_not_immutable_server_evidence:true},
   };
 }
 
