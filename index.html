@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
@@ -6,59 +6,59 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; connect-src 'self' https://vinfqa-public-gateway.ptlocnguyen.workers.dev https://challenges.cloudflare.com https://*.supabase.co; frame-src https://challenges.cloudflare.com; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests" />
   <meta name="referrer" content="no-referrer" />
   <meta name="theme-color" content="#0e1117" />
-  <meta name="description" content="VietInfographicQA: ná»n táº£ng há»i Ä‘Ã¡p infographic tiáº¿ng Viá»‡t vá»›i cÃ¡c mÃ´ hÃ¬nh 4B vÃ  multi-image 7B." />
-  <title>VietInfographicQA Â· Multi-model Chat</title>
+  <meta name="description" content="VietInfographicQA: nền tảng hỏi đáp infographic tiếng Việt với các mô hình 4B và multi-image 7B." />
+  <title>VietInfographicQA · Multi-model Chat</title>
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
       <link rel="stylesheet" href="./assets/styles.css?v=20261127-5" />
 </head>
 <body>
   <div id="app" class="app-shell">
-    <aside id="sidebar" class="sidebar" aria-label="Thanh bÃªn">
+    <aside id="sidebar" class="sidebar" aria-label="Thanh bên">
       <div class="sidebar-top">
-        <div class="brand"><span class="brand-mark" aria-hidden="true">V</span><span><strong>VietInfographicQA</strong><small>MULTI-MODEL Â· RESEARCH DEMO</small></span></div>
-        <button id="closeSidebar" class="icon-btn sidebar-close" title="ÄÃ³ng thanh bÃªn" aria-label="ÄÃ³ng thanh bÃªn">âœ•</button>
+        <div class="brand"><span class="brand-mark" aria-hidden="true">V</span><span><strong>VietInfographicQA</strong><small>MULTI-MODEL · RESEARCH DEMO</small></span></div>
+        <button id="closeSidebar" class="icon-btn sidebar-close" title="Đóng thanh bên" aria-label="Đóng thanh bên">✕</button>
       </div>
-      <button id="newChat" class="new-chat"><span class="plus-icon" aria-hidden="true">ï¼‹</span><span>Cuá»™c trÃ² chuyá»‡n má»›i</span><span class="kbd">Ctrl K</span></button>
-      <nav class="sidebar-auth-nav" aria-label="TÃ i khoáº£n"><a id="sidebarLogin" href="./login.html">ÄÄƒng nháº­p</a><a id="sidebarRegister" href="./register.html">ÄÄƒng kÃ½</a></nav>
-      <div class="sidebar-section-title">CÃC PHIÃŠN HIá»†N Táº I</div>
-      <nav id="chatList" class="chat-list" aria-label="CÃ¡c phiÃªn chat"></nav>
+      <button id="newChat" class="new-chat"><span class="plus-icon" aria-hidden="true">＋</span><span>Cuộc trò chuyện mới</span><span class="kbd">Ctrl K</span></button>
+      <nav class="sidebar-auth-nav" aria-label="Tài khoản"><a id="sidebarLogin" href="./login.html">Đăng nhập</a><a id="sidebarRegister" href="./register.html">Đăng ký</a></nav>
+      <div class="sidebar-section-title">CÁC PHIÊN HIỆN TẠI</div>
+      <nav id="chatList" class="chat-list" aria-label="Các phiên chat"></nav>
       <div class="sidebar-bottom">
         <section class="sidebar-verification" aria-labelledby="verificationTitle">
-          <div class="sidebar-verification-head"><div><strong id="verificationTitle">XÃ¡c minh báº£o máº­t</strong><small>Báº¯t buá»™c trÆ°á»›c khi gá»­i</small></div><span id="verificationShield" class="sidebar-shield" aria-hidden="true">â—‡</span></div>
-          <div id="proofRow" class="proof-row" data-state="loading" aria-live="polite" tabindex="-1"><div id="turnstileBox" class="turnstile-box"></div><span class="verification-badge"><span aria-hidden="true">âœ“</span>ÄÃ£ xÃ¡c minh</span><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thá»­ xÃ¡c minh láº¡i</button></div>
+          <div class="sidebar-verification-head"><div><strong id="verificationTitle">Xác minh bảo mật</strong><small>Bắt buộc trước khi gửi</small></div><span id="verificationShield" class="sidebar-shield" aria-hidden="true">◇</span></div>
+          <div id="proofRow" class="proof-row" data-state="loading" aria-live="polite" tabindex="-1"><div id="turnstileBox" class="turnstile-box"></div><span class="verification-badge"><span aria-hidden="true">✓</span>Đã xác minh</span><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
         </section>
-        <div class="mini-info"><span class="pulse-dot"></span><div><strong>Ba cháº¿ Ä‘á»™ suy luáº­n</strong><small>SSRC v04 Â· Extended Â· M7</small></div></div>
-        <p>SSRC v04 vÃ  Extended dÃ¹ng Qwen3-VL-4B cho má»™t áº£nh. M7 dÃ¹ng Qwen2.5-VL-7B cho 2â€“4 áº£nh theo thá»© tá»±. KhÃ¡ch giá»¯ phiÃªn trong tab; M7 chÆ°a Ä‘á»“ng bá»™ lá»‹ch sá»­ lÃªn tÃ i khoáº£n. áº¢nh Ä‘Æ°á»£c chuyá»ƒn qua Cloudflare Worker tá»›i Hugging Face Ä‘á»ƒ suy luáº­n. KhÃ´ng gá»­i dá»¯ liá»‡u nháº¡y cáº£m.</p>
-        <a href="https://huggingface.co/spaces/ptlocnguyen/s3-qlora-v04-demo" target="_blank" rel="noopener noreferrer">ThÃ´ng tin Space SSRC v04</a>
+        <div class="mini-info"><span class="pulse-dot"></span><div><strong>Ba chế độ suy luận</strong><small>SSRC v04 · Extended · M7</small></div></div>
+        <p>SSRC v04 và Extended dùng Qwen3-VL-4B cho một ảnh. M7 dùng Qwen2.5-VL-7B cho 2–4 ảnh theo thứ tự. Khách giữ phiên trong tab; M7 chưa đồng bộ lịch sử lên tài khoản. Ảnh được chuyển qua Cloudflare Worker tới Hugging Face để suy luận. Không gửi dữ liệu nhạy cảm.</p>
+        <a href="https://huggingface.co/spaces/ptlocnguyen/s3-qlora-v04-demo" target="_blank" rel="noopener noreferrer">Thông tin Space SSRC v04</a>
       </div>
     </aside>
     <div id="sidebarBackdrop" class="sidebar-backdrop" hidden aria-hidden="true"></div>
 
     <main class="main-column">
       <header class="topbar">
-        <button id="openSidebar" class="icon-btn menu-btn" aria-label="Má»Ÿ thanh bÃªn" title="Má»Ÿ thanh bÃªn">â˜°</button>
+        <button id="openSidebar" class="icon-btn menu-btn" aria-label="Mở thanh bên" title="Mở thanh bên">☰</button>
         <div class="topbar-model"><strong id="activeModelTitle">S3-QLoRA Chat</strong><span id="activeModelVersion" class="version">4B</span></div>
-        <section id="gpuQuota" class="gpu-quota-strip" data-state="loading" aria-label="Thá»i gian GPU miá»…n phÃ­ cÃ²n láº¡i cá»§a tÃ i khoáº£n demo">
+        <section id="gpuQuota" class="gpu-quota-strip" data-state="loading" aria-label="Thời gian GPU miễn phí còn lại của tài khoản demo">
           <div class="gpu-quota-label"><span class="gpu-quota-indicator" aria-hidden="true"></span><strong>ZeroGPU demo</strong></div>
-          <div class="gpu-quota-data"><strong id="gpuQuotaRemaining" aria-live="polite">Äang kiá»ƒm tra quotaâ€¦</strong><strong id="gpuQuotaCompact" class="gpu-quota-compact">GPU --</strong><span id="gpuQuotaReset">Äang Ä‘á»c tá»« Hugging Face</span></div>
-          <div class="gpu-quota-progress" role="progressbar" aria-label="Tá»· lá»‡ quota GPU cÃ²n láº¡i" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="gpuQuotaBar"></span></div>
-          <span id="gpuQuotaUpdated" class="gpu-quota-updated">ChÆ°a cÃ³ dá»¯ liá»‡u</span>
-          <button type="button" id="gpuQuotaRefresh" class="gpu-quota-refresh" title="LÃ m má»›i sá»‘ dÆ° GPU" aria-label="LÃ m má»›i quota GPU">â†»</button>
+          <div class="gpu-quota-data"><strong id="gpuQuotaRemaining" aria-live="polite">Đang kiểm tra quota…</strong><strong id="gpuQuotaCompact" class="gpu-quota-compact">GPU --</strong><span id="gpuQuotaReset">Đang đọc từ Hugging Face</span></div>
+          <div class="gpu-quota-progress" role="progressbar" aria-label="Tỷ lệ quota GPU còn lại" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="gpuQuotaBar"></span></div>
+          <span id="gpuQuotaUpdated" class="gpu-quota-updated">Chưa có dữ liệu</span>
+          <button type="button" id="gpuQuotaRefresh" class="gpu-quota-refresh" title="Làm mới số dư GPU" aria-label="Làm mới quota GPU">↻</button>
         </section>
-        <div class="topbar-actions"><span id="serviceStatus" class="service-status"><span class="status-dot"></span>ChÆ°a káº¿t ná»‘i</span><a id="accountLink" class="icon-btn account-link" href="./login.html" aria-label="ÄÄƒng nháº­p" title="ÄÄƒng nháº­p"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg><span id="accountLabel">ÄÄƒng nháº­p</span></a><button id="themeToggle" class="icon-btn" aria-label="Äá»•i giao diá»‡n sÃ¡ng tá»‘i" title="Äá»•i giao diá»‡n sÃ¡ng tá»‘i">â˜€</button><button id="aboutToggle" class="icon-btn about" aria-label="ThÃ´ng tin demo" title="ThÃ´ng tin demo">â“˜</button></div>
+        <div class="topbar-actions"><span id="serviceStatus" class="service-status"><span class="status-dot"></span>Chưa kết nối</span><a id="accountLink" class="icon-btn account-link" href="./login.html" aria-label="Đăng nhập" title="Đăng nhập"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg><span id="accountLabel">Đăng nhập</span></a><button id="themeToggle" class="icon-btn" aria-label="Đổi giao diện sáng tối" title="Đổi giao diện sáng tối">☀</button><button id="aboutToggle" class="icon-btn about" aria-label="Thông tin demo" title="Thông tin demo">ⓘ</button></div>
       </header>
 
       <div class="conversation-stage">
         <section id="emptyState" class="empty-state" aria-labelledby="heroTitle">
-          <div class="hero-logo">V<span class="hero-spark">âœ¦</span></div>
-          <p class="eyebrow">VIETINFOGRAPHICQA Â· MULTI-MODEL RESEARCH DEMO</p>
-          <h1 id="heroTitle">Há»i áº£nh, <em>hiá»ƒu thÃ´ng tin.</em></h1>
-          <p class="hero-description">Chá»n mÃ´ hÃ¬nh, Ä‘Ã­nh kÃ¨m infographic vÃ  Ä‘áº·t cÃ¢u há»i báº±ng tiáº¿ng Viá»‡t. SSRC v04 vÃ  Extended nháº­n má»™t áº£nh; M7 nháº­n 2â€“4 áº£nh theo Ä‘Ãºng thá»© tá»±.</p>
-          <div class="examples" id="examples" aria-label="CÃ¢u há»i gá»£i Ã½">
-            <button type="button" data-prompt="Infographic nÃ y nÃ³i vá» chá»§ Ä‘á» gÃ¬?"><strong>TÃ³m táº¯t ná»™i dung</strong><small>Náº¯m nhanh chá»§ Ä‘á» chÃ­nh</small></button>
-            <button type="button" data-prompt="CÃ³ bao nhiÃªu ná»™i dung Ä‘Æ°á»£c liá»‡t kÃª trong áº£nh?"><strong>Äáº¿m thÃ´ng tin</strong><small>Thá»‘ng kÃª cÃ¡c má»¥c trong áº£nh</small></button>
-            <button type="button" data-prompt="Nhá»¯ng sá»‘ liá»‡u chÃ­nh trong infographic lÃ  gÃ¬?"><strong>Äá»c sá»‘ liá»‡u</strong><small>TrÃ­ch xuáº¥t con sá»‘ ná»•i báº­t</small></button>
-            <button type="button" data-prompt="CÃ¡c quy Ä‘á»‹nh Ä‘Æ°á»£c nÃªu á»Ÿ pháº§n nÃ o cá»§a infographic?"><strong>TÃ¬m quy Ä‘á»‹nh</strong><small>XÃ¡c Ä‘á»‹nh ná»™i dung vÃ  vá»‹ trÃ­</small></button>
+          <div class="hero-logo">V<span class="hero-spark">✦</span></div>
+          <p class="eyebrow">VIETINFOGRAPHICQA · MULTI-MODEL RESEARCH DEMO</p>
+          <h1 id="heroTitle">Hỏi ảnh, <em>hiểu thông tin.</em></h1>
+          <p class="hero-description">Chọn mô hình, đính kèm infographic và đặt câu hỏi bằng tiếng Việt. SSRC v04 và Extended nhận một ảnh; M7 nhận 2–4 ảnh theo đúng thứ tự.</p>
+          <div class="examples" id="examples" aria-label="Câu hỏi gợi ý">
+            <button type="button" data-prompt="Infographic này nói về chủ đề gì?"><strong>Tóm tắt nội dung</strong><small>Nắm nhanh chủ đề chính</small></button>
+            <button type="button" data-prompt="Có bao nhiêu nội dung được liệt kê trong ảnh?"><strong>Đếm thông tin</strong><small>Thống kê các mục trong ảnh</small></button>
+            <button type="button" data-prompt="Những số liệu chính trong infographic là gì?"><strong>Đọc số liệu</strong><small>Trích xuất con số nổi bật</small></button>
+            <button type="button" data-prompt="Các quy định được nêu ở phần nào của infographic?"><strong>Tìm quy định</strong><small>Xác định nội dung và vị trí</small></button>
           </div>
         </section>
 
@@ -68,36 +68,36 @@
       <div class="composer-wrap">
         <div id="errorNotice" class="error-notice" hidden role="alert"></div>
         <div class="composer" id="composer">
-          <div class="drop-overlay" aria-hidden="true"><span>ï¼‹</span><strong>Tháº£ áº£nh Ä‘á»ƒ báº¯t Ä‘áº§u phiÃªn</strong><small>PNG, JPG hoáº·c WebP Â· tá»‘i Ä‘a 8 MB</small></div>
-          <div id="imageChip" class="image-chip image-chip-list" hidden aria-label="CÃ¡c áº£nh Ä‘Ã£ chá»n"></div>
+          <div class="drop-overlay" aria-hidden="true"><span>＋</span><strong>Thả ảnh để bắt đầu phiên</strong><small>PNG, JPG hoặc WebP · tối đa 8 MB</small></div>
+          <div id="imageChip" class="image-chip image-chip-list" hidden aria-label="Các ảnh đã chọn"></div>
           <div class="composer-main">
-            <label class="sr-only" for="questionInput">CÃ¢u há»i báº±ng tiáº¿ng Viá»‡t</label>
-            <textarea id="questionInput" rows="1" maxlength="1000" placeholder="Há»i báº¥t cá»© Ä‘iá»u gÃ¬ vá» infographicâ€¦"></textarea>
+            <label class="sr-only" for="questionInput">Câu hỏi bằng tiếng Việt</label>
+            <textarea id="questionInput" rows="1" maxlength="1000" placeholder="Hỏi bất cứ điều gì về infographic…"></textarea>
           </div>
           <div class="model-selector-row">
-            <label for="modelSelector"><span>MÃ´ hÃ¬nh</span><select id="modelSelector" aria-describedby="modelCapabilityStatus"><option value="s3-v04-4b">Qwen3-VL-4B Â· SSRC v04</option><option value="s3-extended-4b" disabled>Qwen3-VL-4B Â· Extended â€” ChÆ°a kháº£ dá»¥ng</option><option value="m7-7b-nb136" disabled>M7 QLoRA 7B Â· Multi-image â€” ChÆ°a kháº£ dá»¥ng</option></select></label>
-            <span id="modelCapabilityStatus" class="model-capability-status" aria-live="polite">Má»™t áº£nh Â· 32/64/128 tokens</span>
-            <span id="backendLifecycleStatus" class="backend-lifecycle-status" data-state="loading" aria-live="polite"><i class="status-dot" aria-hidden="true"></i><span>Backend: Ä‘ang kiá»ƒm tra</span></span>
+            <label for="modelSelector"><span>Mô hình</span><select id="modelSelector" aria-describedby="modelCapabilityStatus"><option value="s3-v04-4b">Qwen3-VL-4B · SSRC v04</option><option value="s3-extended-4b" disabled>Qwen3-VL-4B · Extended — Chưa khả dụng</option><option value="m7-7b-nb136" disabled>M7 QLoRA 7B · Multi-image — Chưa khả dụng</option></select></label>
+            <span id="modelCapabilityStatus" class="model-capability-status" aria-live="polite">Một ảnh · 32/64/128 tokens</span>
+            <span id="backendLifecycleStatus" class="backend-lifecycle-status" data-state="loading" aria-live="polite"><i class="status-dot" aria-hidden="true"></i><span>Backend: đang kiểm tra</span></span>
           </div>
           <fieldset id="tokenSelector" class="token-selector" aria-describedby="tokenCapabilityStatus">
-            <legend>Äá»™ dÃ i cÃ¢u tráº£ lá»i</legend>
+            <legend>Độ dài câu trả lời</legend>
             <label class="token-option"><input type="radio" name="max_new_tokens" value="32" checked/><span><strong>32</strong><small>SSRC v04</small></span></label>
-            <label class="token-option"><input type="radio" name="max_new_tokens" value="64" disabled/><span><strong>64</strong><small>Extended Â· ChÆ°a kháº£ dá»¥ng</small></span></label>
-            <label class="token-option"><input type="radio" name="max_new_tokens" value="128" disabled/><span><strong>128</strong><small>Extended Â· ChÆ°a kháº£ dá»¥ng</small></span></label>
+            <label class="token-option"><input type="radio" name="max_new_tokens" value="64" disabled/><span><strong>64</strong><small>Extended · Chưa khả dụng</small></span></label>
+            <label class="token-option"><input type="radio" name="max_new_tokens" value="128" disabled/><span><strong>128</strong><small>Extended · Chưa khả dụng</small></span></label>
           </fieldset>
-          <span id="tokenCapabilityStatus" class="sr-only" aria-live="polite">Extended Demo chÆ°a kháº£ dá»¥ng. Giá»›i háº¡n hiá»‡n táº¡i lÃ  32 tokens.</span>
+          <span id="tokenCapabilityStatus" class="sr-only" aria-live="polite">Extended Demo chưa khả dụng. Giới hạn hiện tại là 32 tokens.</span>
           <div class="composer-bottom">
-            <div class="left-tools"><label id="attachButton" class="attach-button" for="imageInput" title="Chá»n áº£nh cho cuá»™c trÃ² chuyá»‡n"><span aria-hidden="true">ï¼‹</span><span>Chá»n áº£nh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><button type="button" id="loadSampleImages" class="sample-button" title="Náº¡p áº£nh infographic giáº£ láº­p; khÃ´ng gá»­i cÃ¢u há»i hay cháº¡y suy luáº­n">áº¢nh máº«u</button><span class="input-hint">PNG, JPG hoáº·c WebP Â· tá»‘i Ä‘a 8 MB/áº£nh</span><span id="sessionLockState" class="session-lock-state" hidden><span aria-hidden="true">â—‡</span> Äang dÃ¹ng áº£nh cá»§a phiÃªn</span><label id="saveImageOption" class="save-image-option" title="LÆ°u áº£nh trong kho riÃªng tÆ° cá»§a tÃ i khoáº£n Ä‘á»ƒ tiáº¿p tá»¥c phiÃªn sau" hidden><input id="saveImage" type="checkbox"/><span>LÆ°u áº£nh Ä‘á»ƒ tiáº¿p tá»¥c sau</span></label></div>
-            <button id="openVerification" class="verification-trigger" type="button"><span aria-hidden="true">âœ“</span><span id="verificationTriggerLabel">XÃ¡c minh</span></button>
-            <button id="sendButton" class="send-btn" aria-label="Gá»­i cÃ¢u há»i" disabled>Gá»­i</button>
+            <div class="left-tools"><label id="attachButton" class="attach-button" for="imageInput" title="Chọn ảnh cho cuộc trò chuyện"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><button type="button" id="loadSampleImages" class="sample-button" title="Nạp ảnh infographic giả lập; không gửi câu hỏi hay chạy suy luận">Ảnh mẫu</button><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB/ảnh</span><span id="sessionLockState" class="session-lock-state" hidden><span aria-hidden="true">◇</span> Đang dùng ảnh của phiên</span><label id="saveImageOption" class="save-image-option" title="Lưu ảnh trong kho riêng tư của tài khoản để tiếp tục phiên sau" hidden><input id="saveImage" type="checkbox"/><span>Lưu ảnh để tiếp tục sau</span></label></div>
+            <button id="openVerification" class="verification-trigger" type="button"><span aria-hidden="true">✓</span><span id="verificationTriggerLabel">Xác minh</span></button>
+            <button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>Gửi</button>
           </div>
         </div>
-        <p id="composerFootnote" class="composer-footnote">Má»™t áº£nh cá»‘ Ä‘á»‹nh cho má»—i cuá»™c trÃ² chuyá»‡n Â· áº¢nh khÃ´ng Ä‘Æ°á»£c lÆ°u máº·c Ä‘á»‹nh Â· SSRC v04: tá»‘i Ä‘a 32 tokens</p>
+        <p id="composerFootnote" class="composer-footnote">Một ảnh cố định cho mỗi cuộc trò chuyện · Ảnh không được lưu mặc định · SSRC v04: tối đa 32 tokens</p>
       </div>
     </main>
   </div>
-  <dialog id="imageViewer" class="image-viewer" aria-labelledby="imageViewerTitle"><div class="image-viewer-top"><div><strong id="imageViewerTitle">áº¢nh cá»§a cuá»™c trÃ² chuyá»‡n</strong><small id="imageViewerMeta"></small></div><button id="closeImageViewer" class="icon-btn" type="button" aria-label="ÄÃ³ng áº£nh lá»›n">âœ•</button></div><div class="image-viewer-canvas"><img id="imageViewerContent" alt="áº¢nh infographic kÃ­ch thÆ°á»›c lá»›n"/></div></dialog>
-  <dialog id="aboutDialog" class="about-dialog"><div class="dialog-top"><strong>Vá» VietInfographicQA</strong><button id="closeAbout" class="icon-btn" aria-label="ÄÃ³ng">âœ•</button></div><p>Demo nghiÃªn cá»©u cÃ³ ba cháº¿ Ä‘á»™: SSRC v04 dÃ¹ng Qwen3-VL-4B vÃ  router S3-QLoRA cho má»™t áº£nh; Extended dÃ¹ng cÃ¹ng há» model vá»›i giá»›i háº¡n Ä‘áº§u ra 64/128 tokens; M7 dÃ¹ng Qwen2.5-VL-7B-Instruct cÃ¹ng adapter QLoRA Ä‘á»ƒ nháº­n 2â€“4 áº£nh cÃ³ thá»© tá»±.</p><p>Provenance xÃ¡c nháº­n thÃ´ng tin cá»§a lÆ°á»£t suy luáº­n theo backend, khÃ´ng chá»©ng minh cÃ¢u tráº£ lá»i Ä‘Ãºng. Quota ZeroGPU vÃ  thá»i gian chá» phá»¥ thuá»™c Hugging Face. M7 hiá»‡n chá»‰ giá»¯ há»™i thoáº¡i trong tab, chÆ°a Ä‘á»“ng bá»™ lá»‹ch sá»­ lÃªn tÃ i khoáº£n. NÃºt â€œáº¢nh máº«uâ€ náº¡p dá»¯ liá»‡u tá»•ng há»£p Ä‘á»ƒ xem trÆ°á»›c vÃ  khÃ´ng tá»± gá»­i yÃªu cáº§u.</p><p class="dialog-alert">KhÃ´ng táº£i lÃªn áº£nh chá»©a dá»¯ liá»‡u cÃ¡ nhÃ¢n hoáº·c thÃ´ng tin nháº¡y cáº£m. áº¢nh gá»­i Ä‘á»ƒ suy luáº­n Ä‘Æ°á»£c chuyá»ƒn qua Cloudflare Worker tá»›i Hugging Face Space.</p><button id="understood" class="dialog-ok">ÄÃ£ hiá»ƒu</button></dialog>
+  <dialog id="imageViewer" class="image-viewer" aria-labelledby="imageViewerTitle"><div class="image-viewer-top"><div><strong id="imageViewerTitle">Ảnh của cuộc trò chuyện</strong><small id="imageViewerMeta"></small></div><button id="closeImageViewer" class="icon-btn" type="button" aria-label="Đóng ảnh lớn">✕</button></div><div class="image-viewer-canvas"><img id="imageViewerContent" alt="Ảnh infographic kích thước lớn"/></div></dialog>
+  <dialog id="aboutDialog" class="about-dialog"><div class="dialog-top"><strong>Về VietInfographicQA</strong><button id="closeAbout" class="icon-btn" aria-label="Đóng">✕</button></div><p>Demo nghiên cứu có ba chế độ: SSRC v04 dùng Qwen3-VL-4B và router S3-QLoRA cho một ảnh; Extended dùng cùng họ model với giới hạn đầu ra 64/128 tokens; M7 dùng Qwen2.5-VL-7B-Instruct cùng adapter QLoRA để nhận 2–4 ảnh có thứ tự.</p><p>Provenance xác nhận thông tin của lượt suy luận theo backend, không chứng minh câu trả lời đúng. Quota ZeroGPU và thời gian chờ phụ thuộc Hugging Face. M7 hiện chỉ giữ hội thoại trong tab, chưa đồng bộ lịch sử lên tài khoản. Nút “Ảnh mẫu” nạp dữ liệu tổng hợp để xem trước và không tự gửi yêu cầu.</p><p class="dialog-alert">Không tải lên ảnh chứa dữ liệu cá nhân hoặc thông tin nhạy cảm. Ảnh gửi để suy luận được chuyển qua Cloudflare Worker tới Hugging Face Space.</p><button id="understood" class="dialog-ok">Đã hiểu</button></dialog>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js?v=20261122-4"></script>
   <script type="module" src="./assets/app.js?v=20261127-4"></script>
