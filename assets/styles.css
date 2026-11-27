@@ -1251,7 +1251,7 @@ img { max-width: 100%; }
   .system-menu > summary { width: 36px; overflow: hidden; font-size: 0; }
   .system-menu > summary .status-dot { flex: 0 0 8px; }
   .account-menu > summary { width: 38px; overflow: hidden; font-size: 0; }
-  .account-menu[open] > :not(summary) { right: 0; }
+  .topbar details[open] > .disclosure-panel { position: fixed; top: 58px; right: 12px; left: auto; width: min(360px,calc(100vw - 24px)); }
   .model-menu { width: 100%; }
   .model-menu > summary { width: 100%; }
   .model-menu[open] > :not(summary) { position: fixed; top: auto; bottom: 112px; left: 12px; width: calc(100vw - 24px); }
