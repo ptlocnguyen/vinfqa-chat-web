@@ -9,7 +9,7 @@
   <meta name="description" content="VietInfographicQA: nền tảng hỏi đáp infographic tiếng Việt với các mô hình 4B và multi-image 7B." />
   <title>VietInfographicQA · Multi-model Chat</title>
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="./assets/styles.css?v=20261128-2" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20261128-3" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -25,7 +25,7 @@
       <div class="sidebar-bottom">
         <section class="sidebar-verification" aria-labelledby="verificationTitle">
           <div class="sidebar-verification-head"><div><strong id="verificationTitle">Xác minh bảo mật</strong><small>Bắt buộc trước khi gửi</small></div><span id="verificationShield" class="sidebar-shield" aria-hidden="true">◇</span></div>
-          <div id="proofRow" class="proof-row" data-state="loading" aria-live="polite" tabindex="-1"><div id="turnstileBox" class="turnstile-box"></div><span class="verification-badge">Đã xác minh cho lượt gửi tiếp theo.</span><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
+          <div id="proofRow" class="proof-row" data-state="idle" aria-live="polite" tabindex="-1"><span id="turnstileStatus" class="turnstile-status">Mở xác minh để tải widget.</span><div id="turnstileBox" class="turnstile-box"></div><span class="verification-badge">Đã xác minh cho lượt gửi tiếp theo.</span><button id="refreshCaptcha" class="text-btn" type="button" hidden>Thử xác minh lại</button></div>
         </section>
         <div class="mini-info"><span class="pulse-dot"></span><div><strong>Ba chế độ suy luận</strong><small>SSRC v04 · Extended · M7</small></div></div>
         <p>SSRC v04 và Extended dùng Qwen3-VL-4B cho một ảnh. M7 dùng Qwen2.5-VL-7B cho 2–4 ảnh theo thứ tự. Khách giữ phiên trong tab; M7 chưa đồng bộ lịch sử lên tài khoản. Ảnh được chuyển qua Cloudflare Worker tới Hugging Face để suy luận. Không gửi dữ liệu nhạy cảm.</p>
@@ -101,7 +101,7 @@
   <dialog id="aboutDialog" class="about-dialog"><div class="dialog-top"><strong>Về VietInfographicQA</strong><button id="closeAbout" class="icon-btn" aria-label="Đóng">✕</button></div><p>Demo nghiên cứu có ba chế độ: SSRC v04 dùng Qwen3-VL-4B và router S3-QLoRA cho một ảnh; Extended dùng cùng họ model với giới hạn đầu ra 64/128 tokens; M7 dùng Qwen2.5-VL-7B-Instruct cùng adapter QLoRA để nhận 2–4 ảnh có thứ tự.</p><p>Provenance xác nhận thông tin của lượt suy luận theo backend, không chứng minh câu trả lời đúng. Quota ZeroGPU và thời gian chờ phụ thuộc Hugging Face. M7 hiện chỉ giữ hội thoại trong tab, chưa đồng bộ lịch sử lên tài khoản. Nút “Ảnh mẫu” nạp dữ liệu tổng hợp để xem trước và không tự gửi yêu cầu.</p><p class="dialog-alert">Không tải lên ảnh chứa dữ liệu cá nhân hoặc thông tin nhạy cảm. Ảnh gửi để suy luận được chuyển qua Cloudflare Worker tới Hugging Face Space.</p><button id="understood" class="dialog-ok">Đã hiểu</button></dialog>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js?v=20261122-4"></script>
-  <script type="module" src="./assets/app.js?v=20261128-2"></script>
+  <script type="module" src="./assets/app.js?v=20261128-3"></script>
   <script type="module" src="./assets/quota.js?v=20261127-4"></script>
 </body>
 </html>
