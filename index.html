@@ -9,7 +9,7 @@
   <meta name="description" content="VietInfographicQA: nền tảng hỏi đáp infographic tiếng Việt với các mô hình 4B và multi-image 7B." />
   <title>VietInfographicQA · Multi-model Chat</title>
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
-      <link rel="stylesheet" href="./assets/styles.css?v=20261127-5" />
+      <link rel="stylesheet" href="./assets/styles.css?v=20261127-6" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -51,9 +51,8 @@
       <div class="conversation-stage">
         <section id="emptyState" class="empty-state" aria-labelledby="heroTitle">
           <div class="hero-logo">V<span class="hero-spark">✦</span></div>
-          <p class="eyebrow">VIETINFOGRAPHICQA · MULTI-MODEL RESEARCH DEMO</p>
           <h1 id="heroTitle">Hỏi ảnh, <em>hiểu thông tin.</em></h1>
-          <p class="hero-description">Chọn mô hình, đính kèm infographic và đặt câu hỏi bằng tiếng Việt. SSRC v04 và Extended nhận một ảnh; M7 nhận 2–4 ảnh theo đúng thứ tự.</p>
+          <p class="hero-description">Hỏi đáp trên một hoặc nhiều infographic tiếng Việt.</p>
           <div class="examples" id="examples" aria-label="Câu hỏi gợi ý">
             <button type="button" data-prompt="Infographic này nói về chủ đề gì?"><strong>Tóm tắt nội dung</strong><small>Nắm nhanh chủ đề chính</small></button>
             <button type="button" data-prompt="Có bao nhiêu nội dung được liệt kê trong ảnh?"><strong>Đếm thông tin</strong><small>Thống kê các mục trong ảnh</small></button>
@@ -67,6 +66,7 @@
 
       <div class="composer-wrap">
         <div id="errorNotice" class="error-notice" hidden role="alert"></div>
+        <div id="backendComposerWarning" class="backend-composer-warning" hidden role="status"></div>
         <div class="composer" id="composer">
           <div class="drop-overlay" aria-hidden="true"><span>＋</span><strong>Thả ảnh để bắt đầu phiên</strong><small>PNG, JPG hoặc WebP · tối đa 8 MB</small></div>
           <div id="imageChip" class="image-chip image-chip-list" hidden aria-label="Các ảnh đã chọn"></div>
@@ -89,10 +89,10 @@
           <div class="composer-bottom">
             <div class="left-tools"><label id="attachButton" class="attach-button" for="imageInput" title="Chọn ảnh cho cuộc trò chuyện"><span aria-hidden="true">＋</span><span>Chọn ảnh</span></label><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden/><button type="button" id="loadSampleImages" class="sample-button" title="Nạp ảnh infographic giả lập; không gửi câu hỏi hay chạy suy luận">Ảnh mẫu</button><span class="input-hint">PNG, JPG hoặc WebP · tối đa 8 MB/ảnh</span><span id="sessionLockState" class="session-lock-state" hidden><span aria-hidden="true">◇</span> Đang dùng ảnh của phiên</span><label id="saveImageOption" class="save-image-option" title="Lưu ảnh trong kho riêng tư của tài khoản để tiếp tục phiên sau" hidden><input id="saveImage" type="checkbox"/><span>Lưu ảnh để tiếp tục sau</span></label></div>
             <button id="openVerification" class="verification-trigger" type="button"><span aria-hidden="true">✓</span><span id="verificationTriggerLabel">Xác minh</span></button>
-            <button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" disabled>Gửi</button>
+            <button id="sendButton" class="send-btn" aria-label="Gửi câu hỏi" title="Gửi câu hỏi" disabled>↑</button>
           </div>
         </div>
-        <p id="composerFootnote" class="composer-footnote">Một ảnh cố định cho mỗi cuộc trò chuyện · Ảnh không được lưu mặc định · SSRC v04: tối đa 32 tokens</p>
+        <p id="composerFootnote" class="composer-footnote">Không gửi ảnh chứa dữ liệu cá nhân hoặc nhạy cảm.</p>
       </div>
     </main>
   </div>
@@ -100,7 +100,7 @@
   <dialog id="aboutDialog" class="about-dialog"><div class="dialog-top"><strong>Về VietInfographicQA</strong><button id="closeAbout" class="icon-btn" aria-label="Đóng">✕</button></div><p>Demo nghiên cứu có ba chế độ: SSRC v04 dùng Qwen3-VL-4B và router S3-QLoRA cho một ảnh; Extended dùng cùng họ model với giới hạn đầu ra 64/128 tokens; M7 dùng Qwen2.5-VL-7B-Instruct cùng adapter QLoRA để nhận 2–4 ảnh có thứ tự.</p><p>Provenance xác nhận thông tin của lượt suy luận theo backend, không chứng minh câu trả lời đúng. Quota ZeroGPU và thời gian chờ phụ thuộc Hugging Face. M7 hiện chỉ giữ hội thoại trong tab, chưa đồng bộ lịch sử lên tài khoản. Nút “Ảnh mẫu” nạp dữ liệu tổng hợp để xem trước và không tự gửi yêu cầu.</p><p class="dialog-alert">Không tải lên ảnh chứa dữ liệu cá nhân hoặc thông tin nhạy cảm. Ảnh gửi để suy luận được chuyển qua Cloudflare Worker tới Hugging Face Space.</p><button id="understood" class="dialog-ok">Đã hiểu</button></dialog>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js?v=20261122-4"></script>
-  <script type="module" src="./assets/app.js?v=20261127-4"></script>
+  <script type="module" src="./assets/app.js?v=20261127-5"></script>
   <script type="module" src="./assets/quota.js?v=20261122-3"></script>
 </body>
 </html>

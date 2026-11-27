@@ -56,19 +56,22 @@ function setupProgressiveDisclosure(){
   refs.backendLifecycleStatus.classList.add('system-backend-status');
   const actions=document.querySelector('.topbar-actions');
   const account=makeMenu('account-menu','Tài khoản',actions,null);
+  account.summary.setAttribute('aria-label','Tài khoản và giao diện');
   account.panel.append(refs.accountLink,refs.sidebarLogin,refs.sidebarRegister,$('#themeToggle'));
   const modelRow=document.querySelector('.model-selector-row');
   const composer=modelRow.parentElement;
   const model=makeMenu('model-menu','Chọn mô hình',composer,modelRow);
   model.panel.append(modelRow,refs.tokenSelector,refs.tokenStatus);
-  refs.modelSelector.addEventListener('change',()=>{model.summary.textContent=`${currentModel()?.label||'Chọn mô hình'} · ${selectedMaxNewTokens()} tokens`;});
-  for(const input of refs.tokenInputs)input.addEventListener('change',()=>{model.summary.textContent=`${currentModel()?.label||'Chọn mô hình'} · ${selectedMaxNewTokens()} tokens`;});
   const sidebarVerify=document.querySelector('.sidebar-verification');
   const composerBottom=document.querySelector('.composer-bottom');
+  composerBottom.querySelector('.left-tools').append(model.details);
   composerBottom.insertBefore(sidebarVerify,composerBottom.querySelector('#openVerification'));
   sidebarVerify.classList.add('inline-verification');
-  const attachmentMenu=makeMenu('attachment-menu','＋ Đính kèm',document.querySelector('.left-tools'),refs.attachButton);
+  const attachmentMenu=makeMenu('attachment-menu','+',document.querySelector('.left-tools'),model.details);
+  attachmentMenu.summary.setAttribute('aria-label','Đính kèm ảnh hoặc chọn ảnh mẫu');
+  attachmentMenu.summary.title='Đính kèm ảnh hoặc chọn ảnh mẫu';
   attachmentMenu.panel.append(refs.attachButton,refs.sampleButton,refs.inputHint,refs.saveImageOption);
+  refs.verifyTrigger.hidden=false;
   const sidebarBottom=document.querySelector('.sidebar-bottom');
   const info=makeMenu('help-menu','Trợ giúp & thông tin',sidebarBottom,sidebarBottom.querySelector('.mini-info'));
   info.panel.append(sidebarBottom.querySelector('.mini-info'),sidebarBottom.querySelector('p'),sidebarBottom.querySelector('a'),$('#aboutToggle'));
@@ -76,6 +79,32 @@ function setupProgressiveDisclosure(){
     menu.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary')?.focus();}});
     document.addEventListener('pointerdown',event=>{if(menu.open&&!menu.contains(event.target))menu.open=false;});
   }
+  for(const menu of [quota.details,status.details,account.details,model.details,attachmentMenu.details]) setupOverlay(menu,menu.querySelector('.disclosure-panel'));
+  setupOverlay(info.details,info.panel);
+  refs.messages.addEventListener('scroll',()=>{for(const menu of refs.messages.querySelectorAll('.message-actions-menu[open]'))menu.open=false;},{passive:true});
+}
+
+function setupOverlay(details,panel){
+  const hasPopover=typeof panel.showPopover==='function';
+  if(hasPopover)panel.setAttribute('popover','manual');
+  else panel.classList.add('fallback-overlay');
+  const place=()=>{
+    if(!details.open)return;
+    const anchor=details.querySelector('summary').getBoundingClientRect();
+    const rect=panel.getBoundingClientRect();
+    const width=Math.min(rect.width,innerWidth-24);
+    const above=details.closest('.composer, .sidebar-bottom')!==null;
+    panel.style.setProperty('left',`${Math.max(12,Math.min(anchor.left,innerWidth-width-12))}px`,'important');
+    panel.style.setProperty('top',`${above?Math.max(12,anchor.top-rect.height-8):Math.min(innerHeight-rect.height-12,anchor.bottom+8)}px`,'important');
+  };
+  details.addEventListener('toggle',()=>{
+    if(details.open){
+      if(hasPopover){panel.style.visibility='hidden';panel.showPopover();}
+      requestAnimationFrame(()=>{place();panel.style.visibility='';});
+    }else if(hasPopover&&panel.matches(':popover-open'))panel.hidePopover();
+  });
+  if(!details.classList.contains('message-actions-menu'))addEventListener('resize',place);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&details.open){details.open=false;details.querySelector('summary')?.focus();}});
 }
 
 const htmlElement = (tag, cls, text) => {
@@ -218,10 +247,10 @@ function syncModelControls() {
   }
   refs.modelSelector.value=model?.model_id || UI_MODEL_IDS.V04;
   const isM7=model?.model_id===UI_MODEL_IDS.M7;
-  refs.activeModelTitle.textContent=isM7?'M7 Multi-image Chat':(model?.model_id===UI_MODEL_IDS.EXTENDED?'S3 Extended Chat':'S3-QLoRA Chat');
-  refs.activeModelVersion.textContent=isM7?'7B':'4B';
+  refs.activeModelTitle.textContent='Hỏi đáp infographic';
+  refs.activeModelVersion.hidden=true;
   refs.imageInput.multiple=isM7;
-  refs.tokenSelector.hidden=isM7;
+  refs.tokenSelector.hidden=model?.model_id!==UI_MODEL_IDS.EXTENDED;
   refs.tokenSelector.disabled=isM7||!model?.enabled||model?.model_id===UI_MODEL_IDS.V04;
   refs.tokenSelector.classList.toggle('token-selector-disabled',refs.tokenSelector.disabled);
   const isExtended=model?.model_id===UI_MODEL_IDS.EXTENDED;
@@ -234,7 +263,7 @@ function syncModelControls() {
   if(dropHint)dropHint.textContent=isM7?'PNG, JPG hoặc WebP · tối đa 8 MB/ảnh, 24 MB tổng':'PNG, JPG hoặc WebP · tối đa 8 MB';
   if(session && model)session.modelId=model.model_id;
   const modelSummary=document.querySelector('.model-menu > summary');
-  if(modelSummary)modelSummary.textContent=`${model?.label||'Chọn mô hình'} · ${selectedMaxNewTokens()} tokens`;
+  if(modelSummary)modelSummary.textContent=model?.model_id===UI_MODEL_IDS.M7?'M7 QLoRA · 96':model?.model_id===UI_MODEL_IDS.EXTENDED?`Extended 4B · ${selectedMaxNewTokens()}`:'SSRC v04 · 32';
   renderPromptSuggestions(isM7);
 }
 function renderPromptSuggestions(isM7){
@@ -256,7 +285,7 @@ function syncTokenControls() {
   const model=currentModel();
   if(model?.model_id===UI_MODEL_IDS.M7){
     refs.tokenStatus.textContent='M7 dùng giới hạn cố định 96 tokens.';
-    refs.composerFootnote.textContent='2–4 ảnh cố định theo thứ tự cho mỗi cuộc trò chuyện · M7: tối đa 96 tokens';
+    refs.composerFootnote.textContent='Không gửi ảnh chứa dữ liệu cá nhân hoặc nhạy cảm.';
     return;
   }
   const allowed=model?.enabled ? model.max_new_tokens : [];
@@ -268,18 +297,21 @@ function syncTokenControls() {
   for (const input of refs.tokenInputs) {
     const value = Number(input.value); const supported = allowed.includes(value);
     input.disabled = state.busy || !supported;
+    input.closest('.token-option').hidden=model?.model_id!==UI_MODEL_IDS.EXTENDED||!supported;
     const detail = input.nextElementSibling?.querySelector('small');
     if (detail && value !== DEFAULT_MAX_NEW_TOKENS)
       detail.textContent = supported ? 'Extended Demo' : 'Extended · Chưa khả dụng';
   }
   refs.tokenStatus.textContent = model?.model_id===UI_MODEL_IDS.EXTENDED
-    ? (model.enabled?'Extended Demo khả dụng với 64 và 128 tokens.':'Extended Demo chưa khả dụng.')
+    ? (model.enabled?`Extended Demo khả dụng với ${allowed.join(' và ')} tokens.`:'Extended Demo chưa khả dụng.')
     : 'SSRC v04 dùng giới hạn cố định 32 tokens.';
   if(model?.model_id===UI_MODEL_IDS.V04){
     const v04Input=refs.tokenInputs.find(input=>Number(input.value)===32);if(v04Input)v04Input.checked=true;
   }
   const active = selectedMaxNewTokens();
-  refs.composerFootnote.textContent = `Một ảnh cố định cho mỗi cuộc trò chuyện · Ảnh không được lưu mặc định · ${active === 32 ? 'SSRC v04' : 'Extended Demo'}: tối đa ${active} tokens`;
+  refs.composerFootnote.textContent = 'Không gửi ảnh chứa dữ liệu cá nhân hoặc nhạy cảm.';
+  const modelSummary=document.querySelector('.model-menu > summary');
+  if(modelSummary)modelSummary.textContent=model?.model_id===UI_MODEL_IDS.EXTENDED?`Extended 4B · ${active}`:'SSRC v04 · 32';
 }
 function createSessionImageNode(session) {
   const images=imagesOf(session);
@@ -338,6 +370,7 @@ function createMessageNode(msg) {
     const actions=htmlElement('details','message-actions-menu');
     const actionSummary=htmlElement('summary','icon-btn','⋯');actionSummary.setAttribute('aria-label','Thao tác câu trả lời');actionSummary.title='Thao tác câu trả lời';actions.append(actionSummary);
     const actionPanel=htmlElement('div','message-actions');actions.append(actionPanel);
+    setupOverlay(actions,actionPanel);
     const copyAnswer=htmlElement('button','text-btn','Sao chép câu trả lời');copyAnswer.type='button';copyAnswer.onclick=()=>copyText(msg.text,copyAnswer);
     if(msg.meta){const copyMeta=htmlElement('button','text-btn','Sao chép provenance');copyMeta.type='button';copyMeta.onclick=()=>copyText(JSON.stringify(safeProvenance(msg.meta),null,2),copyMeta);actionPanel.append(copyMeta);}
     const json=htmlElement('button','text-btn','Tải JSON');json.type='button';json.onclick=()=>downloadConversation('json');
@@ -427,10 +460,13 @@ function resetChallenge() {
 }
 function setProofState(value) {
   refs.proof.dataset.state = value;
-  refs.verifyTrigger.hidden = value === 'verified' || !state.configured;
-  refs.verifyTriggerLabel.textContent = value === 'error' ? 'Thử lại' : 'Xác minh';
+  refs.verifyTrigger.hidden = !state.configured;
+  refs.verifyTriggerLabel.textContent = value === 'verified' ? 'Đã xác minh' : value === 'error' ? 'Thử lại' : 'Xác minh';
   refs.verificationShield.textContent = value === 'verified' ? '✓' : '◇';
   refs.verifyTrigger.dataset.state = value;
+  if(value==='verified')refs.verifyTrigger.setAttribute('aria-label','Đã xác minh Turnstile');
+  else refs.verifyTrigger.setAttribute('aria-label','Mở xác minh Turnstile');
+  if(value==='verified')document.querySelector('.inline-verification')?.classList.remove('is-open');
 }
 function retryLabel(value) {
   const seconds = Number(value);
@@ -543,14 +579,20 @@ function resizeInput() { refs.question.style.height = 'auto'; refs.question.styl
 function setServiceState(ready, label) {
   state.serviceReady = ready; updateSendState(); refs.status.classList.toggle('ready',ready);
   refs.status.classList.toggle('paused',!ready); refs.status.lastChild.textContent = label;
+  const menu=document.querySelector('.system-menu');
+  if(menu){menu.dataset.gateway=ready?'ready':'unavailable';if(!ready)menu.dataset.state='unavailable';}
 }
 const BACKEND_STATUS_LABELS=Object.freeze({Sleeping:'Backend đang ngủ',Starting:'Backend đang khởi động',Ready:'Backend sẵn sàng',Unavailable:'Backend không khả dụng',NOT_VERIFIED:'Backend chưa xác minh'});
 function setBackendLifecycleStatus(status,checkedAt) {
   if(!refs.backendLifecycleStatus)return;
   const known=Object.hasOwn(BACKEND_STATUS_LABELS,status)?status:'NOT_VERIFIED';
   refs.backendLifecycleStatus.dataset.state=known==='Ready'?'ready':known==='Starting'?'starting':known==='Sleeping'?'sleeping':known==='Unavailable'?'unavailable':'unknown';
+  const menu=document.querySelector('.system-menu');
+  if(menu)menu.dataset.state=known==='Ready'&&state.serviceReady?'ready':known==='Starting'||known==='Sleeping'?'starting':known==='Unavailable'||!state.serviceReady?'unavailable':'unknown';
   const checked=typeof checkedAt==='string'&&!Number.isNaN(Date.parse(checkedAt))?` · kiểm tra ${new Date(checkedAt).toLocaleTimeString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}`:'';
   refs.backendLifecycleStatus.lastElementChild.textContent=' '+BACKEND_STATUS_LABELS[known]+checked;
+  const warning=document.querySelector('#backendComposerWarning');
+  if(warning){warning.hidden=!['Starting','Sleeping','Unavailable'].includes(known);warning.textContent=known==='Unavailable'?'Backend chưa khả dụng. Vui lòng kiểm tra lại sau.':'Backend đang khởi động. Giữ câu hỏi và gửi khi sẵn sàng.';}
 }
 async function checkBackendStatus() {
   if (!refs.backendLifecycleStatus || document.hidden || !state.configured) return;
@@ -621,9 +663,7 @@ function renderTurnstileWidget() {
       action: 'vinfqa_infer',
       callback: (token) => {
         state.turnstileToken = token; setProofState('verified'); updateSendState();
-        if (state.verificationRequested && matchMedia('(max-width: 1024px)').matches) {
-          closeSidebar(); (refs.send.disabled ? refs.question : refs.send).focus();
-        }
+        if (state.verificationRequested) (refs.send.disabled ? refs.question : refs.send).focus();
         state.verificationRequested = false;
       },
       'expired-callback': () => {state.turnstileToken = ''; setProofState('loading'); updateSendState();},
@@ -663,9 +703,10 @@ refs.closeSidebar.onclick=()=>closeSidebar(true);
 refs.sidebarBackdrop.onclick=()=>closeSidebar(true);
 refs.verifyTrigger.onclick=()=>{
   state.verificationRequested = true;
-  refs.sidebar.classList.add('open'); refs.sidebarBackdrop.hidden = false;
-  refs.proof.scrollIntoView({block:'center',behavior:'smooth'});
-  refs.proof.focus({preventScroll:true});
+  const panel=document.querySelector('.inline-verification');
+  if(panel)panel.classList.toggle('is-open');
+  if(!panel?.classList.contains('is-open'))state.verificationRequested=false;
+  if(panel?.classList.contains('is-open'))refs.proof.focus({preventScroll:true});
   if (refs.proof.dataset.state === 'error') rerenderTurnstile();
 };
 $('#themeToggle').onclick=()=>{root.classList.toggle('theme-light');$('#themeToggle').textContent=root.classList.contains('theme-light')?'☾':'☀';if(state.configured)rerenderTurnstile();};
