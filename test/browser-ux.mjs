@@ -30,6 +30,7 @@ try{
     if(url.pathname==='/health')data={status:'ready',capabilities:{extended_demo:true,max_new_tokens:[32,64,128],models:[
       {model_id:'s3-v04-4b',enabled:true},{model_id:'s3-extended-4b',enabled:true},{model_id:'m7-7b-nb136',enabled:true},
     ]}};
+    else if(url.pathname==='/history')data={conversations:[]};
     else if(url.pathname==='/backend-status')data={model_id:url.searchParams.get('model_id'),backend:{status:'Ready',checked_at:new Date().toISOString()}};
     else if(url.pathname==='/quota')data={status:'available',remaining_seconds:289,base_seconds:300,checked_at:new Date().toISOString()};
     else if(['/infer','/infer-multi'].includes(url.pathname)){
@@ -48,7 +49,37 @@ try{
   });
   const page=await context.newPage();page.on('pageerror',error=>pageErrors.push(error.message));
   await page.goto(origin,{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>window.__qaTurnstile);
+  await page.waitForFunction(()=>window.__qaTurnstile).catch(error=>{throw Error(`${error.message}; page errors: ${pageErrors.join(' | ')}`);});
+  assert.match(await page.locator('#composerFootnote').innerText(),/không lưu vào tài khoản/);
+  assert.equal(await page.locator('.topbar-actions > #themeToggle').count(),1);
+  await page.locator('.account-menu > summary').click();await page.locator('#sidebarLogin').waitFor({state:'visible'});
+  assert.equal(await page.locator('#sidebarLogin').isVisible(),true);
+  assert.equal(await page.locator('#sidebarRegister').isVisible(),true);
+  const accountWidth=(await page.locator('.account-menu .disclosure-panel').boundingBox()).width;
+  assert.ok(accountWidth<=260,`Account popover width ${accountWidth}`);
+  if(process.env.VISUAL_QA_DIR)await page.screenshot({path:process.env.VISUAL_QA_DIR+'/after-account-guest-desktop-local-mock.png'});
+  await page.keyboard.press('Escape');
+  await page.locator('#themeToggle').click();assert.equal(await page.locator('html.theme-light').count(),1);
+  await page.waitForTimeout(250);
+  if(process.env.VISUAL_QA_DIR)await page.screenshot({path:process.env.VISUAL_QA_DIR+'/after-home-light-desktop-local-mock.png'});
+  await page.locator('#themeToggle').click();assert.equal(await page.locator('html.theme-light').count(),0);
+  for(const [width,height] of [[1920,1080],[1024,768],[768,1024],[390,844]]){
+    await page.setViewportSize({width,height});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
+    if(process.env.VISUAL_QA_DIR)await page.screenshot({path:process.env.VISUAL_QA_DIR+`/after-home-${width}-local-mock.png`});
+  }
+  await page.setViewportSize({width:1366,height:768});
+  await page.locator('#sidebarResize').focus();await page.keyboard.press('ArrowRight');
+  assert.equal(await page.locator('#sidebarResize').getAttribute('aria-valuenow'),'280');
+  await page.locator('#sidebarResize').dblclick();
+  assert.equal(await page.locator('#sidebarResize').getAttribute('aria-valuenow'),'264');
+  const handle=await page.locator('#sidebarResize').boundingBox();
+  await page.mouse.move(handle.x+5,handle.y+80);await page.mouse.down();await page.mouse.move(350,handle.y+80,{steps:8});await page.mouse.up();
+  assert.equal(await page.locator('#sidebarResize').getAttribute('aria-valuenow'),'350');
+  assert.equal(await page.evaluate(()=>localStorage.getItem('vinfqa.sidebar.width')),'350');
+  assert.equal(await page.locator('#sidebarResize').evaluate(node=>node.classList.contains('is-resizing')),false);
+  await page.locator('#openSidebar').click();await page.locator('#openSidebar').click();
+  assert.equal(await page.locator('#sidebarResize').getAttribute('aria-valuenow'),'350');
   await page.locator('.model-menu > summary').click();
   assert.equal(await page.locator('#modelChoices button').count(),2);
   await page.keyboard.press('Escape');
@@ -61,6 +92,16 @@ try{
   await page.locator('#sendButton').click();
   await page.locator('.message.assistant .msg-body').first().waitFor();
   assert.deepEqual(requests.at(-1),{path:'/infer',modelId:'s3-v04-4b',token:32});
+  await page.locator('.chat-item .chat-title').first().evaluate(node=>node.textContent='Tiêu đề hội thoại tiếng Việt rất dài, gồm nhiều nội dung cần xem lại');
+  await page.locator('#sidebarResize').focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowLeft');
+  await page.locator('.chat-item').first().hover();await page.locator('#chatTitleTooltip').waitFor({state:'visible'});
+  assert.match(await page.locator('#chatTitleTooltip').innerText(),/Tiêu đề hội thoại/);
+  if(process.env.VISUAL_QA_DIR)await page.screenshot({path:process.env.VISUAL_QA_DIR+'/after-sidebar-tooltip-desktop-local-mock.png'});
+  await page.locator('#openSidebar').click();await page.locator('.chat-item').first().focus();
+  await page.locator('#chatTitleTooltip').waitFor({state:'visible'});
+  await page.locator('#openSidebar').click();
+  assert.equal(await page.locator('#chatTitleTooltip').isVisible(),false);
+  if(process.env.VISUAL_QA_DIR)await page.screenshot({path:process.env.VISUAL_QA_DIR+'/after-sidebar-chat-desktop-local-mock.png'});
   await page.locator('#questionInput').fill('Bản nháp giữ lại');
   page.once('dialog',dialog=>dialog.dismiss());await page.locator('label.token-option:has(input[value="64"])').click();
   assert.equal(await page.locator('input[name="max_new_tokens"]:checked').inputValue(),'32');
@@ -96,12 +137,35 @@ try{
   }
   assert.equal(await page.locator('.message').count(),34);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),1366);
+  const scrollGeometry=await page.locator('#messages').evaluate(node=>({right:node.getBoundingClientRect().right,viewport:innerWidth,scrollHeight:node.scrollHeight,clientHeight:node.clientHeight}));
+  assert.ok(scrollGeometry.viewport-scrollGeometry.right<2);
+  assert.ok(scrollGeometry.scrollHeight>scrollGeometry.clientHeight);
+  await page.waitForTimeout(300);
   if(process.env.VISUAL_QA_DIR)await page.screenshot({path:process.env.VISUAL_QA_DIR+'/after-34-messages-local-mock.png'});
   await page.locator('#questionInput').fill('QA_429');await page.evaluate(()=>window.__qaTurnstile.callback('LOCAL_MOCK_ONLY'));
   await page.locator('#sendButton').click();await page.locator('#errorNotice').getByText('Lỗi mock HTTP 429',{exact:false}).waitFor();
   assert.equal(requests.filter(item=>item.path==='/infer-multi').length,18);
   await page.setViewportSize({width:320,height:700});
+  if(await page.locator('#sidebar').evaluate(node=>node.classList.contains('open')))await page.locator('#closeSidebar').click();
+  await page.waitForFunction(()=>document.querySelector('#sidebar').getBoundingClientRect().right<=1);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),320);
+  assert.equal(await page.locator('#sidebarResize').isVisible(),false);
+  assert.equal(await page.locator('#themeToggle').isVisible(),true);
+  if(process.env.VISUAL_QA_DIR)await page.screenshot({path:process.env.VISUAL_QA_DIR+'/after-chat-320-local-mock.png'});
+  await page.setViewportSize({width:1366,height:768});
+  await page.evaluate(()=>sessionStorage.setItem('vinfqa.auth.tab-session',JSON.stringify({access_token:'LOCAL_MOCK_ONLY',refresh_token:'LOCAL_MOCK_ONLY',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'00000000-0000-0000-0000-000000000000',user_metadata:{display_name:'Người dùng kiểm thử với tên rất dài để xem cắt chữ'}}})));
+  await page.reload();await page.waitForFunction(()=>document.querySelector('#accountStatus')?.textContent.includes('Người dùng kiểm thử'));
+  assert.equal(await page.locator('#sidebarResize').getAttribute('aria-valuenow'),'248');
+  assert.match(await page.locator('#composerFootnote').innerText(),/Lịch sử 4B có thể đồng bộ/);
+  await page.locator('.account-menu > summary').click();await page.locator('#sidebarRegister').waitFor({state:'visible'});
+  assert.equal(await page.locator('#sidebarLogin').isVisible(),false);
+  assert.equal(await page.locator('#sidebarRegister').isVisible(),true);
+  if(process.env.VISUAL_QA_DIR)await page.screenshot({path:process.env.VISUAL_QA_DIR+'/after-account-signed-in-local-mock.png'});
+  await page.keyboard.press('Escape');
+  await page.locator('.model-menu > summary').click();await page.locator('#modelChoices button').nth(1).click();
+  assert.match(await page.locator('#composerFootnote').innerText(),/M7 chỉ giữ hội thoại trong tab/);
+  await page.evaluate(()=>sessionStorage.removeItem('vinfqa.auth.tab-session'));
+  await page.setViewportSize({width:320,height:700});
   await page.goto(origin+'/register.html');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),320);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight),700);

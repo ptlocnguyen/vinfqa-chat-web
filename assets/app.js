@@ -77,8 +77,10 @@ function setupProgressiveDisclosure(){
   refs.backendLifecycleStatus.classList.add('system-backend-status');
   const actions=document.querySelector('.topbar-actions');
   const account=makeMenu('account-menu','Tài khoản',actions,null);
-  account.summary.setAttribute('aria-label','Tài khoản và giao diện');
-  account.panel.append(refs.accountLink,refs.sidebarLogin,refs.sidebarRegister,$('#themeToggle'));
+  account.summary.setAttribute('aria-label','Tài khoản');
+  const accountStatus=htmlElement('div','account-status');accountStatus.id='accountStatus';
+  account.panel.append(accountStatus,refs.accountLink,refs.sidebarLogin,refs.sidebarRegister);
+  actions.insertBefore($('#themeToggle'),account.details);
   const modelRow=document.querySelector('.model-selector-row');
   const composer=modelRow.parentElement;
   const model=makeMenu('model-menu','Chọn mô hình',composer,modelRow);
@@ -125,7 +127,10 @@ function setupProgressiveDisclosure(){
   setIcon(refs.send,'arrow-up');
   setIcon($('#openSidebar'),'panel-left');setIcon(refs.closeSidebar,'x');
   setIcon($('#gpuQuotaRefresh'),'refresh-cw');
-  setIcon($('#themeToggle'),'sun');setIcon($('#aboutToggle'),'info');
+  setIcon($('#themeToggle'),root.classList.contains('theme-light')?'moon':'sun');
+  $('#themeToggle').title=root.classList.contains('theme-light')?'Chuyển sang giao diện tối':'Chuyển sang giao diện sáng';
+  $('#themeToggle').setAttribute('aria-label',$('#themeToggle').title);
+  setIcon($('#aboutToggle'),'info');
   $('#newChat .plus-icon')?.replaceWith(icon('plus'));
   setIcon($('#closeImageViewer'),'x');setIcon($('#closeAbout'),'x');
   const accountSummary=account.summary;accountSummary.prepend(icon('circle-user-round'));
@@ -218,7 +223,22 @@ function updateAccountUI() {
   refs.sidebarLogin.href = loggedIn ? '#account' : './login.html';
   refs.sidebarRegister.textContent = loggedIn ? 'Đăng xuất' : 'Đăng ký';
   refs.sidebarRegister.href = loggedIn ? '#logout' : './register.html';
+  refs.accountLink.hidden=true;
+  refs.sidebarLogin.hidden=loggedIn;
+  const accountStatus=$('#accountStatus');
+  if(accountStatus){accountStatus.hidden=!loggedIn;accountStatus.textContent=loggedIn?`Tài khoản · ${label}`:'';accountStatus.title=loggedIn?String(state.authSession?.user?.user_metadata?.display_name||state.authSession?.user?.email||label):'';}
+  refs.sidebarLogin.prepend(icon('circle-user-round'));
+  refs.sidebarRegister.prepend(icon(loggedIn?'log-out':'plus'));
   if (!loggedIn) refs.saveImage.checked = false;
+  updateStorageNotice();
+}
+function updateStorageNotice(){
+  const footnote=refs.composerFootnote;
+  if(!footnote)return;
+  const isM7=current()?.modelId===UI_MODEL_IDS.M7;
+  const message=!state.authSession?'Lịch sử chỉ giữ trong tab; ảnh được gửi để suy luận nhưng không lưu vào tài khoản.':isM7?'M7 chỉ giữ hội thoại trong tab, kể cả khi đã đăng nhập; ảnh được gửi để suy luận.':'Lịch sử 4B có thể đồng bộ; ảnh được gửi để suy luận và chỉ lưu vào tài khoản khi bạn chọn lưu.';
+  footnote.replaceChildren(document.createTextNode(message+' Không gửi dữ liệu cá nhân hoặc nhạy cảm.'));
+  if(!state.authSession){footnote.append(' ');const link=htmlElement('a','','Đăng nhập');link.href='./login.html';footnote.append(link);}
 }
 function releaseSessionImages(sessions = state.sessions) {
   for (const session of sessions) {
@@ -282,7 +302,7 @@ async function loadRemoteHistory() {
     releaseSessionImages(previousSessions);
     state.sessions = remoteSessions;
     state.active = state.sessions[0]?.id || null;
-    void hydratePrivateImages(remoteSessions);
+    if(remoteSessions.length)void hydratePrivateImages(remoteSessions);
     return state.sessions.length > 0;
   } catch (error) {
     showError(error?.name === 'TimeoutError' ? 'Tải lịch sử tài khoản quá thời gian.' : (error.message || 'Chưa tải được lịch sử tài khoản.'));
@@ -303,12 +323,13 @@ function addSession() {
   if(state.configured){setBackendLifecycleStatus('NOT_VERIFIED');void checkBackendStatus();}
 }
 function renderSidebar() {
+  hideChatTooltip();
   refs.chatList.replaceChildren();
   for (const session of state.sessions) {
     const item = htmlElement('button', 'chat-item' + (state.active === session.id ? ' active' : ''));
     item.type = 'button'; item.setAttribute('aria-current', state.active === session.id ? 'page' : 'false');
     const chatIcon=htmlElement('span','chat-icon');chatIcon.append(icon('file-text'));
-    item.append(chatIcon, htmlElement('span', '', session.title));
+    item.append(chatIcon, htmlElement('span', 'chat-title', session.title));
     item.onclick = () => { if (!state.busy) { state.imageOperation++;state.active = session.id; resetRecall(); closeSidebar(); render(); setBackendLifecycleStatus('NOT_VERIFIED'); void checkBackendStatus(); } };
     refs.chatList.append(item);
   }
@@ -329,6 +350,7 @@ function render() {
   if (sessionLocked(session)) refs.messages.append(createSessionImageNode(session));
   for (const msg of session.messages) refs.messages.append(createMessageNode(msg));
   syncModelControls();
+  updateStorageNotice();
   syncImageChip();
   updateSendState();
   if(followBottom)scrollToBottom();else refs.messages.scrollTop=previousScrollTop;
@@ -381,7 +403,6 @@ function syncTokenControls() {
   const model=currentModel();
   if(model?.model_id===UI_MODEL_IDS.M7){
     refs.tokenStatus.textContent='M7 dùng giới hạn cố định 96 tokens.';
-    refs.composerFootnote.textContent='Không gửi ảnh chứa dữ liệu cá nhân hoặc nhạy cảm.';
     return;
   }
   const allowed=state.models.filter(item=>item.enabled&&item.model_id!==UI_MODEL_IDS.M7).flatMap(item=>item.max_new_tokens);
@@ -393,7 +414,6 @@ function syncTokenControls() {
     input.title=supported?(value===32?'SSRC v04':'Extended Demo'):`${value} tokens chưa khả dụng theo Gateway`;
   }
   refs.tokenStatus.textContent='32 tokens dùng SSRC v04; 64/128 tokens dùng Extended Demo khi Gateway cho phép.';
-  refs.composerFootnote.textContent = 'Không gửi ảnh chứa dữ liệu cá nhân hoặc nhạy cảm.';
 }
 function createSessionImageNode(session) {
   const images=imagesOf(session);
@@ -825,18 +845,93 @@ for (const input of refs.tokenInputs) input.addEventListener('change',()=>{
 refs.imageInput.addEventListener('change',(e)=>{void queueChooseFiles(e.target.files);e.target.value='';});
 function switchBackend(next,token=next===UI_MODEL_IDS.M7?96:next===UI_MODEL_IDS.V04?32:64){
   const session=current();if(!session)return false;
-  if(next===session.modelId){session.maxNewTokens=token;syncModelControls();syncTokenControls();updateSendState();return true;}
+  if(next===session.modelId){session.maxNewTokens=token;syncModelControls();syncTokenControls();updateSendState();updateStorageNotice();return true;}
   if((sessionLocked(session)||imagesOf(session).length)&&!confirm('Đổi backend sẽ bắt đầu cuộc trò chuyện mới để không trộn ảnh hoặc lịch sử. Tiếp tục?')){refs.modelSelector.value=session.modelId;return false;}
   const draft=refs.question.value;state.imageOperation++;
   if(sessionLocked(session)||imagesOf(session).length)addSession();
   const target=current();target.modelId=next;target.maxNewTokens=token;target.draft=draft;refs.question.value=draft;resizeInput();
   refs.modelSelector.value=next;const selected=refs.tokenInputs.find(item=>Number(item.value)===token);if(selected)selected.checked=true;
-  syncModelControls();syncImageChip();syncTokenControls();updateSendState();showError();setBackendLifecycleStatus('NOT_VERIFIED');void checkBackendStatus();return true;
+  syncModelControls();syncImageChip();syncTokenControls();updateSendState();updateStorageNotice();showError();setBackendLifecycleStatus('NOT_VERIFIED');void checkBackendStatus();return true;
 }
+const sidebarWidthKey='vinfqa.sidebar.width';
+const sidebarResize=$('#sidebarResize');
+const sidebarDefaultWidth=264;
+let sidebarPreferredWidth=sidebarDefaultWidth;
+try{const saved=Number(localStorage.getItem(sidebarWidthKey));if(Number.isFinite(saved)&&saved>=220&&saved<=420)sidebarPreferredWidth=saved;}catch{}
+const sidebarMaxWidth=()=>Math.max(220,Math.min(420,innerWidth-600));
+function applySidebarWidth(){
+  const max=sidebarMaxWidth();
+  const width=Math.max(220,Math.min(sidebarPreferredWidth,max));
+  $('#app').style.setProperty('--sidebar-width',`${width}px`);
+  sidebarResize.setAttribute('aria-valuemax',String(max));
+  sidebarResize.setAttribute('aria-valuenow',String(width));
+  sidebarResize.setAttribute('aria-valuetext',`${width} pixel`);
+}
+function setSidebarWidth(width){
+  sidebarPreferredWidth=Math.max(220,Math.min(width,sidebarMaxWidth()));
+  applySidebarWidth();
+  try{localStorage.setItem(sidebarWidthKey,String(sidebarPreferredWidth));}catch{}
+}
+applySidebarWidth();
+addEventListener('resize',applySidebarWidth);
+sidebarResize.addEventListener('pointerdown',event=>{
+  if(event.button!==0||innerWidth<=1024||$('#app').classList.contains('sidebar-collapsed'))return;
+  event.preventDefault();sidebarResize.setPointerCapture(event.pointerId);
+  sidebarResize.classList.add('is-resizing');document.body.classList.add('sidebar-resizing');
+});
+sidebarResize.addEventListener('pointermove',event=>{
+  if(!sidebarResize.hasPointerCapture(event.pointerId))return;
+  setSidebarWidth(event.clientX);
+});
+function finishSidebarResize(event){
+  if(sidebarResize.hasPointerCapture(event.pointerId))sidebarResize.releasePointerCapture(event.pointerId);
+  sidebarResize.classList.remove('is-resizing');document.body.classList.remove('sidebar-resizing');
+}
+sidebarResize.addEventListener('pointerup',finishSidebarResize);
+sidebarResize.addEventListener('pointercancel',finishSidebarResize);
+sidebarResize.addEventListener('dblclick',()=>setSidebarWidth(sidebarDefaultWidth));
+sidebarResize.addEventListener('keydown',event=>{
+  const delta=event.key==='ArrowLeft'?-16:event.key==='ArrowRight'?16:0;
+  if(delta){event.preventDefault();setSidebarWidth(Number(sidebarResize.getAttribute('aria-valuenow'))+delta);}
+  else if(event.key==='Home'){event.preventDefault();setSidebarWidth(sidebarDefaultWidth);}
+});
+const chatTooltip=htmlElement('div','chat-title-tooltip');
+chatTooltip.id='chatTitleTooltip';chatTooltip.role='tooltip';chatTooltip.hidden=true;document.body.append(chatTooltip);
+let tooltipTimer=null;let tooltipItem=null;
+function hideChatTooltip(){
+  clearTimeout(tooltipTimer);tooltipTimer=null;
+  if(tooltipItem)tooltipItem.removeAttribute('aria-describedby');
+  tooltipItem=null;chatTooltip.hidden=true;
+}
+function showChatTooltip(item){
+  hideChatTooltip();
+  const title=item?.querySelector('.chat-title');
+  if(!title)return;
+  const collapsed=$('#app').classList.contains('sidebar-collapsed');
+  if(!collapsed&&title.scrollWidth<=title.clientWidth+1)return;
+  tooltipItem=item;
+  tooltipTimer=setTimeout(()=>{
+    if(!item.isConnected||tooltipItem!==item)return;
+    chatTooltip.textContent=title.textContent;
+    chatTooltip.hidden=false;
+    item.setAttribute('aria-describedby',chatTooltip.id);
+    const rect=item.getBoundingClientRect();const tip=chatTooltip.getBoundingClientRect();
+    const left=rect.right+8+tip.width<=innerWidth-12?rect.right+8:Math.max(12,rect.left-tip.width-8);
+    chatTooltip.style.left=`${left}px`;
+    chatTooltip.style.top=`${Math.max(12,Math.min(rect.top+(rect.height-tip.height)/2,innerHeight-tip.height-12))}px`;
+  },180);
+}
+refs.chatList.addEventListener('pointerover',event=>{const item=event.target.closest('.chat-item');if(item&&item!==tooltipItem)showChatTooltip(item);});
+refs.chatList.addEventListener('pointerout',event=>{const item=event.target.closest('.chat-item');if(item&&!item.contains(event.relatedTarget))hideChatTooltip();});
+refs.chatList.addEventListener('focusin',event=>{const item=event.target.closest('.chat-item');if(item)showChatTooltip(item);});
+refs.chatList.addEventListener('focusout',event=>{if(event.target.closest('.chat-item'))hideChatTooltip();});
+refs.chatList.addEventListener('scroll',hideChatTooltip,{passive:true});
+refs.sidebar.addEventListener('scroll',hideChatTooltip,{passive:true});
+addEventListener('resize',hideChatTooltip);
 refs.modelSelector.addEventListener('change',()=>{const next=refs.modelSelector.value;switchBackend(next);});
 $('#newChat').onclick=()=>{if(!state.busy){const defaultInput=refs.tokenInputs.find((input)=>Number(input.value)===DEFAULT_MAX_NEW_TOKENS);if(defaultInput)defaultInput.checked=true;addSession();showError();closeSidebar();}};
 function closeSidebar(restoreFocus = false){refs.sidebar.classList.remove('open');refs.sidebarBackdrop.hidden=true;if(restoreFocus)refs.openSidebar.focus();}
-refs.openSidebar.onclick=()=>{if(matchMedia('(min-width: 1025px)').matches){document.querySelector('.app-shell').classList.toggle('sidebar-collapsed');return;}refs.sidebar.classList.add('open');refs.sidebarBackdrop.hidden=false;refs.closeSidebar.focus();};
+refs.openSidebar.onclick=()=>{hideChatTooltip();if(matchMedia('(min-width: 1025px)').matches){document.querySelector('.app-shell').classList.toggle('sidebar-collapsed');applySidebarWidth();return;}refs.sidebar.classList.add('open');refs.sidebarBackdrop.hidden=false;refs.closeSidebar.focus();};
 refs.closeSidebar.onclick=()=>closeSidebar(true);
 refs.sidebarBackdrop.onclick=()=>closeSidebar(true);
 refs.verifyTrigger.onclick=()=>{
@@ -847,7 +942,7 @@ refs.verifyTrigger.onclick=()=>{
   if(panel?.classList.contains('is-open'))refs.proof.focus({preventScroll:true});
   if (refs.proof.dataset.state === 'error') rerenderTurnstile();
 };
-$('#themeToggle').onclick=()=>{root.classList.toggle('theme-light');setIcon($('#themeToggle'),root.classList.contains('theme-light')?'moon':'sun');if(state.configured)rerenderTurnstile();};
+$('#themeToggle').onclick=()=>{root.classList.toggle('theme-light');const light=root.classList.contains('theme-light');setIcon($('#themeToggle'),light?'moon':'sun');$('#themeToggle').title=light?'Chuyển sang giao diện tối':'Chuyển sang giao diện sáng';$('#themeToggle').setAttribute('aria-label',$('#themeToggle').title);try{localStorage.setItem('vinfqa.theme',light?'light':'dark');}catch{}if(state.configured)rerenderTurnstile();};
 $('#aboutToggle').onclick=()=>$('#aboutDialog').showModal();
 $('#closeAbout').onclick=()=>$('#aboutDialog').close();
 $('#understood').onclick=()=>$('#aboutDialog').close();
@@ -902,6 +997,7 @@ for (const link of [refs.accountLink,refs.sidebarLogin,refs.sidebarRegister]) {
   });
 }
 async function initialize() {
+  try{if(localStorage.getItem('vinfqa.theme')==='light')root.classList.add('theme-light');}catch{}
   setupProgressiveDisclosure();
   if (authConfigured) state.authSession = await getSession();
   updateAccountUI();
