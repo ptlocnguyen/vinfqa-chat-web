@@ -9,7 +9,7 @@
   <meta name="description" content="VietInfographicQA: nền tảng hỏi đáp infographic tiếng Việt với các mô hình 4B và multi-image 7B." />
   <title>VietInfographicQA · Multi-model Chat</title>
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
-      <link rel="stylesheet" href="./assets/styles.css?v=20261127-8" />
+      <link rel="stylesheet" href="./assets/styles.css?v=20261128-1" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -82,8 +82,8 @@
           <fieldset id="tokenSelector" class="token-selector" aria-describedby="tokenCapabilityStatus">
             <legend>Độ dài câu trả lời</legend>
             <label class="token-option"><input type="radio" name="max_new_tokens" value="32" checked/><span><strong>32</strong><small>SSRC v04</small></span></label>
-            <label class="token-option"><input type="radio" name="max_new_tokens" value="64" disabled/><span><strong>64 tokens</strong></span></label>
-            <label class="token-option"><input type="radio" name="max_new_tokens" value="128" disabled/><span><strong>128 tokens</strong></span></label>
+            <label class="token-option" title="64 tokens · Extended Demo"><input type="radio" name="max_new_tokens" value="64" aria-label="64 tokens" disabled/><span><strong>64</strong></span></label>
+            <label class="token-option" title="128 tokens · Extended Demo"><input type="radio" name="max_new_tokens" value="128" aria-label="128 tokens" disabled/><span><strong>128</strong></span></label>
           </fieldset>
           <span id="tokenCapabilityStatus" class="sr-only" aria-live="polite">Extended Demo chưa khả dụng. Giới hạn hiện tại là 32 tokens.</span>
           <div class="composer-bottom">
@@ -100,7 +100,7 @@
   <dialog id="aboutDialog" class="about-dialog"><div class="dialog-top"><strong>Về VietInfographicQA</strong><button id="closeAbout" class="icon-btn" aria-label="Đóng">✕</button></div><p>Demo nghiên cứu có ba chế độ: SSRC v04 dùng Qwen3-VL-4B và router S3-QLoRA cho một ảnh; Extended dùng cùng họ model với giới hạn đầu ra 64/128 tokens; M7 dùng Qwen2.5-VL-7B-Instruct cùng adapter QLoRA để nhận 2–4 ảnh có thứ tự.</p><p>Provenance xác nhận thông tin của lượt suy luận theo backend, không chứng minh câu trả lời đúng. Quota ZeroGPU và thời gian chờ phụ thuộc Hugging Face. M7 hiện chỉ giữ hội thoại trong tab, chưa đồng bộ lịch sử lên tài khoản. Nút “Ảnh mẫu” nạp dữ liệu tổng hợp để xem trước và không tự gửi yêu cầu.</p><p class="dialog-alert">Không tải lên ảnh chứa dữ liệu cá nhân hoặc thông tin nhạy cảm. Ảnh gửi để suy luận được chuyển qua Cloudflare Worker tới Hugging Face Space.</p><button id="understood" class="dialog-ok">Đã hiểu</button></dialog>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js?v=20261122-4"></script>
-  <script type="module" src="./assets/app.js?v=20261127-7"></script>
+  <script type="module" src="./assets/app.js?v=20261128-1"></script>
   <script type="module" src="./assets/quota.js?v=20261127-4"></script>
 </body>
 </html>

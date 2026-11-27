@@ -74,6 +74,7 @@ a { text-decoration: none; }
 .feature-list { display: grid; gap: 12px; margin: 28px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; }
 .feature-list li { display: flex; align-items: flex-start; gap: 10px; }
 .feature-list span { display: grid; width: 22px; height: 22px; flex: 0 0 22px; place-items: center; border-radius: 50%; background: rgb(121 222 176 / 12%); color: var(--accent); font-size: 12px; }
+.feature-list .lucide-icon { width: 14px; height: 14px; }
 .back-link { position: relative; z-index: 1; width: fit-content; color: var(--accent); font-size: 14px; font-weight: 700; }
 .back-link:hover { text-decoration: underline; }
 
@@ -186,6 +187,10 @@ form { display: grid; gap: 18px; }
   .register-card form { row-gap: 6px; }
   .register-card .auth-switch { margin-top: 6px; }
   .register-card .auth-disclaimer { margin-top: 4px; padding-top: 4px; }
+}
+@media (max-width: 360px) {
+  .register-card .field label { font-size: 12px; }
+  .register-card .field:nth-child(3) .password-toggle { margin-left: 4px; }
 }
 
 @media (max-height: 760px) and (min-width: 921px) {

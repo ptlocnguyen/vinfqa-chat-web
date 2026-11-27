@@ -1,5 +1,15 @@
 export const UI_MODEL_IDS = Object.freeze({V04:'s3-v04-4b',EXTENDED:'s3-extended-4b',M7:'m7-7b-nb136'});
 
+export function backendForUiChoice(group, tokens, models) {
+  if(group!=='m7'&&group!=='qwen4b'||group==='m7'&&tokens!==96)return null;
+  const id = group === 'm7' ? UI_MODEL_IDS.M7 : tokens === 32 ? UI_MODEL_IDS.V04 : UI_MODEL_IDS.EXTENDED;
+  const model = modelForSession(models, id);
+  if (!model?.enabled || !model.max_new_tokens.includes(group === 'm7' ? 96 : tokens)) return null;
+  return model;
+}
+
+export function modelGroup(modelId) { return modelId === UI_MODEL_IDS.M7 ? 'm7' : 'qwen4b'; }
+
 export function uiModelCapabilities(healthPayload) {
   const advertised = Array.isArray(healthPayload?.capabilities?.models)
     ? healthPayload.capabilities.models : [];

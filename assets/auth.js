@@ -1,4 +1,7 @@
 import {authConfigured, getSession, sendPasswordRecovery, signIn, signUp} from './supabase-auth.js';
+import {setIcon} from './lucide-icons.mjs';
+
+for(const marker of document.querySelectorAll('li > span[aria-hidden="true"]'))setIcon(marker,'check');
 
 const form = document.getElementById('authForm');
 const notice = document.getElementById('authNotice');

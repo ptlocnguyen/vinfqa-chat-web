@@ -1095,6 +1095,7 @@ img { max-width: 100%; }
   .send-btn { min-width: 64px; }
   .composer-footnote { padding: 0 8px; font-size: 11px; }
 }
+@media (max-width: 360px) { .topbar-model { display: none; } }
 
 @media (max-width: 560px) {
   .image-viewer { width: 100vw; height: 100dvh; max-width: none; max-height: none; border: 0; border-radius: 0; }
@@ -1173,7 +1174,9 @@ img { max-width: 100%; }
 .sidebar-bottom a { margin-top: 8px; }
 .disclosure-trigger { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid var(--stroke); border-radius: 10px; background: var(--surface); color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; list-style: none; white-space: nowrap; }
 .disclosure-trigger::-webkit-details-marker { display: none; }
-.disclosure-trigger::after { content: '⌄'; color: var(--soft); }
+.disclosure-trigger::after { display: none; }
+.disclosure-trigger > .lucide-icon:last-child { width: 14px; height: 14px; color: var(--soft); transition: transform .16s; }
+details[open] > .disclosure-trigger > .lucide-icon:last-child { transform: rotate(180deg); }
 .topbar details { position: relative; z-index: 40; }
 .topbar details[open] > :not(summary) { position: absolute; z-index: 60; top: calc(100% + 9px); right: 0; width: min(360px,calc(100vw - 24px)); padding: 14px; border: 1px solid var(--stroke-strong); border-radius: 14px; background: var(--panel); box-shadow: var(--shadow); }
 .quota-menu[open] #gpuQuota { display: grid; width: 100%; grid-template-columns: 1fr; gap: 8px; border: 0; padding: 0; background: transparent; }
@@ -1315,7 +1318,7 @@ img { max-width: 100%; }
   .verification-trigger { width: 38px; min-width: 38px; justify-content: center; overflow: hidden; }
   .verification-trigger span:last-child { display: none; }
   .account-menu > summary { font-size: 0 !important; }
-  .account-menu > summary::before { content: '♙'; font-size: 16px; }
+  .account-menu > summary::before { display: none; }
   .account-menu > summary::after { display: none; }
   .inline-verification { right: 12px; }
 }
@@ -1351,6 +1354,27 @@ img { max-width: 100%; }
 .inline-verification[data-state="verified"] { width: max-content; max-width: calc(100vw - 24px); padding: 10px 12px; }
 .inline-verification[data-state="verified"] .sidebar-verification-head { display: none; }
 .inline-verification[data-state="verified"] .verification-badge { min-height: 0; padding: 0; border: 0; background: transparent; }
+.inline-verification { position: fixed; inset: auto auto auto auto; z-index: 1001; width: min(330px,calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; }
+.inline-verification[data-state="verified"] { pointer-events: none; }
+.lucide-icon { width: 18px; height: 18px; flex: 0 0 auto; vertical-align: middle; }
+.send-btn .lucide-icon,.attachment-menu > summary .lucide-icon { width: 19px; height: 19px; }
+.icon-btn .lucide-icon,.verification-trigger .lucide-icon { width: 18px; height: 18px; }
+.account-menu > summary .lucide-icon { margin-right: 5px; }
+.token-selector:not([hidden]) { display: flex; align-items: center; flex: 0 0 auto; gap: 2px; margin: 0; padding: 2px; border: 1px solid var(--stroke); border-radius: 10px; }
+.token-selector legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.token-selector .token-option span { min-width: 36px; min-height: 32px; padding: 4px 6px; border: 0; border-radius: 7px; }
+.token-selector .token-option small { display: none; }
+.token-selector .token-option input:checked + span { background: #173329; }
+.model-menu > summary { min-width: 0; }
+@media (max-width: 700px) {
+  .account-menu > summary::before { display: none; }
+  .composer-bottom { flex-wrap: wrap; }
+  .left-tools { flex-wrap: wrap; }
+  .model-menu { max-width: calc(100vw - 132px); }
+  .token-selector { order: 1; }
+  .system-menu > summary > .lucide-icon:last-child,.account-menu > summary > .lucide-icon:last-child { display: none; }
+  .system-menu > summary,.account-menu > summary { justify-content: center; padding-inline: 0; }
+}
 .message-meta { align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .meta-summary { font-variant-numeric: tabular-nums; }
 .provenance-mark { display: inline-grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; font-size: 12px; font-weight: 800; }

@@ -1,0 +1,1 @@
+Lucide Static 1.82.0 ? selected icons only. Source: https://lucide.dev/icons/ ? License: ISC; see LICENSE. Some icons are derived from Feather and retain MIT notice in the license.

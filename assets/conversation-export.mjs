@@ -37,7 +37,8 @@ export function exportConversation(session, models, exportedAt = new Date().toIS
       model_id: model?.model_id ?? session.modelId ?? null,
       model_name: model?.label ?? null,
       image_count: images.length || (Number.isInteger(provenanceImageCount) ? provenanceImageCount : null),
-      images: images.map((item,index) => ({order:index+1,size_bytes:item.file?.size ?? null})),
+      images: images.map((item,index) => ({order:index+1,size_bytes:item.file?.size ?? null,
+        sha256:typeof item.sha256==='string'&&/^[a-f0-9]{64}$/.test(item.sha256)?item.sha256:null})),
       messages: (session.messages || []).map((message) => ({
         role:message.role,
         text:redactText(message.text),
@@ -56,7 +57,7 @@ export function conversationMarkdown(data) {
     `# ${conversation.title || 'Cuộc trò chuyện VietInfographicQA'}`,'',
     `- Model: ${conversation.model_name || conversation.model_id || 'NOT_VERIFIED'}`,
     `- Số ảnh: ${conversation.image_count}`,
-    ...conversation.images.map((image) => `- Ảnh ${image.order} (${image.size_bytes ?? 'NOT_VERIFIED'} bytes)`),
+    ...conversation.images.map((image) => `- Ảnh ${image.order} (${image.size_bytes ?? 'NOT_VERIFIED'} bytes) · SHA-256 ${image.sha256 || 'NOT_VERIFIED'}`),
     '',
   ];
   for (const message of conversation.messages) {
