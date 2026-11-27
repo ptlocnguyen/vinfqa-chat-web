@@ -6,7 +6,9 @@ import {conversationMarkdown,exportConversation,safeProvenance} from './conversa
 const cfg = window.VINFQA_PUBLIC_CONFIG || {};
 const $ = (selector) => document.querySelector(selector);
 const root = document.documentElement;
-const INFERENCE_TIMEOUT_MS = 240_000;
+// Four M7 images upload sequentially (up to 4 × 45s), then submit (30s) and await SSE (150s).
+// Leave room for that 360s upstream ceiling plus gateway/quota overhead.
+const INFERENCE_TIMEOUT_MS = 390_000;
 const HEALTH_TIMEOUT_MS = 10_000;
 const TURNSTILE_LOAD_TIMEOUT_MS = 15_000;
 const HEALTH_RETRY_DELAYS_MS = [3_000,10_000,30_000];
@@ -443,7 +445,20 @@ async function send() {
         state.models=state.models.map(item=>item.model_id===UI_MODEL_IDS.EXTENDED?{...item,enabled:false}:item);syncModelControls();syncTokenControls();
       }
       const suffix = response.status === 429 ? retryLabel(response.headers.get('Retry-After')) : '';
-      throw Error((payload.message || `Gateway từ chối (${response.status}).`) + suffix);
+      const safeCode = typeof payload.code === 'string' && /^[A-Z0-9_]{2,64}$/.test(payload.code) ? payload.code : '';
+      const requestId = typeof (payload.request_id || response.headers.get('X-Request-ID')) === 'string'
+        ? String(payload.request_id || response.headers.get('X-Request-ID')).slice(0, 64) : '';
+      const upstreamStatus = Number.isInteger(payload.upstream_status) ? `upstream HTTP ${payload.upstream_status}` : '';
+      const timestamp = typeof payload.timestamp === 'string' && !Number.isNaN(Date.parse(payload.timestamp))
+        ? `lúc ${new Date(payload.timestamp).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}` : '';
+      const diagnostic = [
+        `HTTP ${response.status}`,
+        upstreamStatus,
+        safeCode ? `mã ${safeCode}` : '',
+        requestId ? `request ${requestId}` : '',
+        timestamp,
+      ].filter(Boolean).join(' · ');
+      throw Error(`${payload.message || `Gateway từ chối (${response.status}).`}${suffix}\n${diagnostic}`);
     }
     if (payload.status !== 'INFERENCE_COMPLETED') throw Error('Backend không hoàn thành lượt suy luận.');
     assistant.text = typeof payload.answer === 'string' ? payload.answer : '';
@@ -458,7 +473,7 @@ async function send() {
       showError('Đã đồng bộ câu hỏi và câu trả lời, nhưng ảnh chưa được lưu vào lịch sử.');
   } catch (error) {
     const message = error?.name === 'TimeoutError'
-      ? 'Lượt suy luận vượt quá 4 phút. Gateway có thể vẫn đang kết thúc tác vụ; vui lòng chờ rồi thử lại với CAPTCHA mới.'
+      ? 'Trình duyệt đã chờ quá 6 phút 30 giây. Request có thể đã tới backend; kiểm tra trạng thái trước khi gửi lại và dùng CAPTCHA mới nếu thử thủ công.'
       : (error.message || 'Lỗi kết nối.');
     assistant.text = 'Không thể hoàn thành lượt suy luận. ' + message;
     showError(message);
