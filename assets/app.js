@@ -61,7 +61,10 @@ function setupProgressiveDisclosure(){
   const modelRow=document.querySelector('.model-selector-row');
   const composer=modelRow.parentElement;
   const model=makeMenu('model-menu','Chọn mô hình',composer,modelRow);
-  model.panel.append(modelRow,refs.tokenSelector,refs.tokenStatus);
+  const modelChoices=htmlElement('div','model-choice-list');
+  modelChoices.id='modelChoices';
+  modelRow.classList.add('model-selector-native');
+  model.panel.append(modelChoices,modelRow,refs.tokenSelector,refs.tokenStatus);
   const sidebarVerify=document.querySelector('.sidebar-verification');
   const composerBottom=document.querySelector('.composer-bottom');
   composerBottom.querySelector('.left-tools').append(model.details);
@@ -104,7 +107,36 @@ function setupOverlay(details,panel){
     }else if(hasPopover&&panel.matches(':popover-open'))panel.hidePopover();
   });
   if(!details.classList.contains('message-actions-menu'))addEventListener('resize',place);
+  if(!details.classList.contains('message-actions-menu')&&typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{if(details.open)requestAnimationFrame(place);}).observe(panel);
+  details.addEventListener('vinfqa:overlay-resize',()=>requestAnimationFrame(place));
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&details.open){details.open=false;details.querySelector('summary')?.focus();}});
+}
+
+const MODEL_CARD_CONTENT=Object.freeze({
+  [UI_MODEL_IDS.V04]:['SSRC v04','Qwen3-VL-4B-Instruct'],
+  [UI_MODEL_IDS.EXTENDED]:['Extended 4B','Qwen3-VL-4B-Instruct'],
+  [UI_MODEL_IDS.M7]:['M7 QLoRA','Qwen2.5-VL-7B-Instruct'],
+});
+function renderModelChoices(){
+  const list=document.querySelector('#modelChoices');if(!list)return;
+  const active=currentModel()?.model_id;
+  list.replaceChildren(...state.models.map(model=>{
+    const [name,backbone]=MODEL_CARD_CONTENT[model.model_id]||[model.label,'Backbone chưa xác minh'];
+    const button=htmlElement('button','model-choice');button.type='button';button.disabled=!model.enabled;
+    button.dataset.selected=String(model.model_id===active);
+    button.setAttribute('aria-pressed',String(model.model_id===active));
+    const images=model.image_min===model.image_max?`${model.image_min} ảnh`:`${model.image_min}–${model.image_max} ảnh`;
+    const limits=model.max_new_tokens.join('/')||(model.model_id===UI_MODEL_IDS.EXTENDED?'64/128':'—');
+    button.append(htmlElement('span','model-choice-name',name),htmlElement('span','model-choice-check',model.model_id===active?'✓':''),htmlElement('small','',`${backbone} · ${images} · ${limits} tokens${model.enabled?'':' · Chưa khả dụng'}`));
+    button.onclick=()=>{
+      refs.modelSelector.value=model.model_id;
+      refs.modelSelector.dispatchEvent(new Event('change',{bubbles:true}));
+      syncModelControls();
+      if(currentModel()?.model_id===model.model_id)document.querySelector('.model-menu').open=false;
+    };
+    return button;
+  }));
+  document.querySelector('.model-menu')?.dispatchEvent(new Event('vinfqa:overlay-resize'));
 }
 
 const htmlElement = (tag, cls, text) => {
@@ -264,6 +296,7 @@ function syncModelControls() {
   if(session && model)session.modelId=model.model_id;
   const modelSummary=document.querySelector('.model-menu > summary');
   if(modelSummary)modelSummary.textContent=model?.model_id===UI_MODEL_IDS.M7?'M7 QLoRA · 96':model?.model_id===UI_MODEL_IDS.EXTENDED?`Extended 4B · ${selectedMaxNewTokens()}`:'SSRC v04 · 32';
+  renderModelChoices();
   renderPromptSuggestions(isM7);
 }
 function renderPromptSuggestions(isM7){
@@ -322,7 +355,9 @@ function createSessionImageNode(session) {
     return htmlElement('div','session-image-missing',text);
   }
   const disclosure=htmlElement('details','session-gallery-disclosure');
-  disclosure.append(htmlElement('summary','',`${images.length} ảnh của phiên · nhấn để mở`));
+  const gallerySummary=htmlElement('summary','',`${images.length} ảnh của phiên · Xem ảnh`);
+  disclosure.append(gallerySummary);
+  disclosure.addEventListener('toggle',()=>{gallerySummary.textContent=disclosure.open?'Thu gọn ảnh':`${images.length} ảnh của phiên · Xem ảnh`;});
   const group=htmlElement('div','session-image-gallery');
   images.forEach((item,index)=>{
     const button = htmlElement('button','session-image-context');
@@ -351,31 +386,39 @@ function createMessageNode(msg) {
   if (msg.meta) {
     const pills = htmlElement('div', 'message-meta');
     const meta = msg.meta; const presentation = provenancePresentation(meta);
-    pills.append(htmlElement('span','meta-pill mode',presentation.modeLabel));
-    const branch=provenanceBranch(meta);
-    if(branch)pills.append(htmlElement('span','meta-pill',branch));
     const session=current();
-    if(session){const count=imagesOf(session).length;const metadataCount=Number.isInteger(meta.image_count)?meta.image_count:null;pills.append(htmlElement('span','meta-pill',count?`${count} ảnh`:(metadataCount!==null?`${metadataCount} ảnh`:'Số ảnh chưa xác minh')));}
-    if (typeof meta.elapsed_seconds === 'number') pills.append(htmlElement('span','meta-pill', `${meta.elapsed_seconds.toLocaleString('vi-VN')} giây`));
-    pills.append(htmlElement('span','meta-pill',presentation.tokenLabel));
-    pills.append(htmlElement('span',`meta-pill ${presentation.verified?'':'warn'}`,presentation.verified?'Provenance đã xác minh':'NOT_VERIFIED'));
-    if (presentation.truncation) pills.append(htmlElement('span','meta-pill warn',presentation.truncation));
+    const count=Number.isInteger(meta.image_count)?meta.image_count:imagesOf(session).length;
+    const elapsed=typeof meta.elapsed_seconds==='number'?meta.elapsed_seconds.toLocaleString('vi-VN'):'—';
+    pills.append(htmlElement('span','meta-summary',`${count||'—'} ảnh · ${elapsed} giây · ${presentation.outputTokens??'—'}/${presentation.limit??'—'} tokens`));
+    const verification=htmlElement('span',`provenance-mark ${presentation.verified?'verified':'unverified'}`,presentation.verified?'✓':'!');
+    verification.title=presentation.verified?'Provenance đã xác minh theo metadata backend; không xác nhận đáp án đúng.':'NOT_VERIFIED: metadata chưa đủ điều kiện xác minh.';
+    verification.setAttribute('aria-label',verification.title);pills.append(verification);
+    if(!presentation.verified)pills.append(htmlElement('span','meta-warning','NOT_VERIFIED'));
+    if(presentation.truncation)pills.append(htmlElement('span','meta-warning',presentation.truncation));
     content.append(pills);
-    const details = htmlElement('details','detail-box');
-    details.append(htmlElement('summary','', 'Thông tin suy luận / provenance'));
-    details.append(htmlElement('pre','', JSON.stringify(meta, null, 2)));
-    content.append(details);
   }
   if(msg.role==='assistant'&&!msg.loading&&msg.text){
+    const toolbar=htmlElement('div','answer-toolbar');
+    const copyAnswer=htmlElement('button','copy-answer','Sao chép');copyAnswer.type='button';copyAnswer.title='Sao chép câu trả lời';copyAnswer.onclick=()=>copyText(msg.text,copyAnswer);
+    toolbar.append(copyAnswer);
     const actions=htmlElement('details','message-actions-menu');
     const actionSummary=htmlElement('summary','icon-btn','⋯');actionSummary.setAttribute('aria-label','Thao tác câu trả lời');actionSummary.title='Thao tác câu trả lời';actions.append(actionSummary);
     const actionPanel=htmlElement('div','message-actions');actions.append(actionPanel);
     setupOverlay(actions,actionPanel);
-    const copyAnswer=htmlElement('button','text-btn','Sao chép câu trả lời');copyAnswer.type='button';copyAnswer.onclick=()=>copyText(msg.text,copyAnswer);
-    if(msg.meta){const copyMeta=htmlElement('button','text-btn','Sao chép provenance');copyMeta.type='button';copyMeta.onclick=()=>copyText(JSON.stringify(safeProvenance(msg.meta),null,2),copyMeta);actionPanel.append(copyMeta);}
+    if(msg.meta){
+      const safe=safeProvenance(msg.meta);
+      const dialog=htmlElement('dialog','provenance-dialog');
+      const header=htmlElement('div','provenance-dialog-header');header.append(htmlElement('strong','', 'Provenance'));
+      const close=htmlElement('button','icon-btn','×');close.type='button';close.setAttribute('aria-label','Đóng provenance');close.onclick=()=>dialog.close();header.append(close);
+      const branch=provenanceBranch(safe);if(branch)dialog.append(htmlElement('p','provenance-branch',`Nhánh: ${branch}`));
+      dialog.prepend(header);dialog.append(htmlElement('pre','',JSON.stringify(safe,null,2)));
+      content.append(dialog);
+      const view=htmlElement('button','text-btn','Xem provenance');view.type='button';view.onclick=()=>{actions.open=false;dialog.showModal();};actionPanel.append(view);
+      const copyMeta=htmlElement('button','text-btn','Sao chép provenance');copyMeta.type='button';copyMeta.onclick=()=>copyText(JSON.stringify(safe,null,2),copyMeta);actionPanel.append(copyMeta);
+    }
     const json=htmlElement('button','text-btn','Tải JSON');json.type='button';json.onclick=()=>downloadConversation('json');
     const markdown=htmlElement('button','text-btn','Tải Markdown');markdown.type='button';markdown.onclick=()=>downloadConversation('markdown');
-    actionPanel.prepend(copyAnswer);actionPanel.append(json,markdown);content.append(actions);
+    actionPanel.append(json,markdown);toolbar.append(actions);content.append(toolbar);
   }
   wrap.append(content); return wrap;
 }
@@ -460,13 +503,15 @@ function resetChallenge() {
 }
 function setProofState(value) {
   refs.proof.dataset.state = value;
+  const verificationPanel=document.querySelector('.inline-verification');
+  if(verificationPanel)verificationPanel.dataset.state=value;
   refs.verifyTrigger.hidden = !state.configured;
   refs.verifyTriggerLabel.textContent = value === 'verified' ? 'Đã xác minh' : value === 'error' ? 'Thử lại' : 'Xác minh';
   refs.verificationShield.textContent = value === 'verified' ? '✓' : '◇';
   refs.verifyTrigger.dataset.state = value;
   if(value==='verified')refs.verifyTrigger.setAttribute('aria-label','Đã xác minh Turnstile');
   else refs.verifyTrigger.setAttribute('aria-label','Mở xác minh Turnstile');
-  if(value==='verified')document.querySelector('.inline-verification')?.classList.remove('is-open');
+  if(value==='verified')verificationPanel?.classList.remove('is-open');
 }
 function retryLabel(value) {
   const seconds = Number(value);
@@ -592,7 +637,12 @@ function setBackendLifecycleStatus(status,checkedAt) {
   const checked=typeof checkedAt==='string'&&!Number.isNaN(Date.parse(checkedAt))?` · kiểm tra ${new Date(checkedAt).toLocaleTimeString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}`:'';
   refs.backendLifecycleStatus.lastElementChild.textContent=' '+BACKEND_STATUS_LABELS[known]+checked;
   const warning=document.querySelector('#backendComposerWarning');
-  if(warning){warning.hidden=!['Starting','Sleeping','Unavailable'].includes(known);warning.textContent=known==='Unavailable'?'Backend chưa khả dụng. Vui lòng kiểm tra lại sau.':'Backend đang khởi động. Giữ câu hỏi và gửi khi sẵn sàng.';}
+  if(warning){
+    warning.hidden=!['Starting','Sleeping','Unavailable'].includes(known);
+    warning.textContent=known==='Sleeping'?'Backend đang ngủ. Gửi yêu cầu để đánh thức; hãy gửi lại thủ công khi backend sẵn sàng.'
+      :known==='Starting'?'Backend đang khởi động. Giữ câu hỏi và gửi khi sẵn sàng.'
+      :'Backend chưa khả dụng. Vui lòng kiểm tra lại sau.';
+  }
 }
 async function checkBackendStatus() {
   if (!refs.backendLifecycleStatus || document.hidden || !state.configured) return;

@@ -1324,3 +1324,46 @@ img { max-width: 100%; }
 @media (max-width: 1024px) {
   .app-shell,.sidebar-collapsed.app-shell { grid-template-columns: minmax(0,1fr); }
 }
+
+/* Compact content inside existing popovers and answer cards. */
+.model-selector-native { display: none !important; }
+.model-choice-list { display: grid; gap: 8px; }
+.model-choice { display: grid; width: 100%; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; padding: 11px 12px; border: 1px solid var(--stroke); border-radius: 11px; background: var(--surface); color: var(--text); text-align: left; cursor: pointer; }
+.model-choice:hover:not(:disabled),.model-choice:focus-visible { border-color: var(--accent); }
+.model-choice[data-selected="true"] { border-color: #4a9272; background: color-mix(in srgb,var(--surface) 82%,var(--accent)); }
+.model-choice:disabled { opacity: .55; cursor: not-allowed; }
+.model-choice-name { font-size: 13px; font-weight: 750; }
+.model-choice-check { color: var(--accent); font-size: 16px; line-height: 1; }
+.model-choice small { grid-column: 1 / -1; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.model-menu .token-selector:not([hidden]) { display: grid; width: 100%; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin: 13px 0 0; }
+.model-menu .token-selector legend { margin-bottom: 7px; }
+.model-menu .token-option[hidden] { display: none; }
+.model-menu .token-option span { width: 100%; min-height: 38px; }
+.quota-menu[open] #gpuQuota { display: grid; width: 100%; grid-template-columns: minmax(0,1fr) auto; gap: 10px 8px; padding: 0; }
+.quota-menu .disclosure-panel:popover-open { display: block; }
+.quota-menu[open] #gpuQuota { grid-column: auto; }
+.quota-menu[open] #gpuQuota .gpu-quota-label { grid-row: 1; grid-column: 1; }
+.quota-menu[open] #gpuQuota .gpu-quota-refresh { grid-row: 1; grid-column: 2; justify-self: end; }
+.quota-menu[open] #gpuQuota .gpu-quota-data { grid-row: 2; grid-column: 1 / -1; width: 100%; min-width: 0; }
+.quota-menu[open] #gpuQuota #gpuQuotaRemaining { font-size: 20px; line-height: 1.25; }
+.quota-menu[open] #gpuQuota .gpu-quota-progress { grid-row: 3; grid-column: 1 / -1; width: 100%; }
+.quota-menu[open] #gpuQuota .gpu-quota-updated { grid-row: 4; grid-column: 1 / -1; }
+.inline-verification[data-state="verified"] { width: max-content; max-width: calc(100vw - 24px); padding: 10px 12px; }
+.inline-verification[data-state="verified"] .sidebar-verification-head { display: none; }
+.inline-verification[data-state="verified"] .verification-badge { min-height: 0; padding: 0; border: 0; background: transparent; }
+.message-meta { align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.meta-summary { font-variant-numeric: tabular-nums; }
+.provenance-mark { display: inline-grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; font-size: 12px; font-weight: 800; }
+.provenance-mark.verified { background: #173329; color: var(--accent); }
+.provenance-mark.unverified { background: #382719; color: var(--warning); }
+.meta-warning { color: var(--warning); font-weight: 700; }
+.answer-toolbar { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+.copy-answer { min-height: 30px; padding: 4px 8px; border: 1px solid var(--stroke); border-radius: 9px; background: var(--surface); color: var(--muted); cursor: pointer; font-size: 12px; }
+.copy-answer:hover { color: var(--text); border-color: var(--accent); }
+.answer-toolbar .message-actions-menu { margin: 0; }
+.provenance-dialog { width: min(620px,calc(100vw - 24px)); max-height: min(80dvh,720px); padding: 16px; border: 1px solid var(--stroke-strong); border-radius: 14px; background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+.provenance-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+.provenance-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.provenance-branch { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.provenance-dialog pre { max-height: 60dvh; overflow: auto; padding: 12px; border-radius: 10px; background: var(--surface); font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.account-menu #themeToggle { display: flex; }
