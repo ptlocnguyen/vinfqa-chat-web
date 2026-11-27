@@ -4,4 +4,6 @@
 
 Ảnh sau sửa đổi bao gồm màn hình 1920, 1366, 1024, 768, 390 và 320 px; dark/light; đăng nhập/đăng ký; menu model, ảnh đính kèm và quota; Turnstile chưa xác minh và đã xác minh bằng mock; bốn ảnh M7, ảnh trùng tên, gallery, image viewer và câu trả lời giả lập. Browser interaction test có thể chạy bằng `npm run test:browser` trên máy có Chrome.
 
+`after-34-messages-local-mock.png` ghi lại hội thoại M7 dài 34 thông điệp với câu trả lời dài giả lập. Browser test cũng kiểm tra lỗi HTTP 429 giả lập và bố cục 320 px.
+
 Không có ảnh chụp production trong bộ này. Không có lượt suy luận GPU nào được thực hiện để tạo ảnh.

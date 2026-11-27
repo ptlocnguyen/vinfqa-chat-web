@@ -37,7 +37,8 @@ try{
       const modelId=['m7-7b-nb136','s3-extended-4b','s3-v04-4b'].find(id=>text.includes(id));
       const token=modelId==='m7-7b-nb136'?96:Number(text.match(/name="max_new_tokens"\r\n\r\n(32|64|128)\r\n/)?.[1]||32);
       requests.push({path:url.pathname,modelId,token});
-      data={status:'INFERENCE_COMPLETED',answer:'Câu trả lời MOCK',request_id:`qa-${requests.length}`,history_mode:modelId==='m7-7b-nb136'?'LOCAL_ONLY':'NONE',provenance:{
+      if(text.includes('QA_429')){await route.fulfill({status:429,contentType:'application/json',body:JSON.stringify({code:'MOCK_RATE_LIMIT',message:'Lỗi mock HTTP 429',request_id:'qa-error',timestamp:new Date().toISOString()})});return;}
+      data={status:'INFERENCE_COMPLETED',answer:text.includes('QA_LONG')?'Câu trả lời MOCK dài '+('chuỗi_liên_tục_'.repeat(60)):'Câu trả lời MOCK',request_id:`qa-${requests.length}`,history_mode:modelId==='m7-7b-nb136'?'LOCAL_ONLY':'NONE',provenance:{
         inference_mode:modelId==='m7-7b-nb136'?'M7_MULTI_IMAGE_DEMO':modelId==='s3-extended-4b'?'EXTENDED_DEMO':'SSRC_V04',
         model_id:modelId,requested_max_new_tokens:token,max_new_tokens:token,output_tokens:3,image_count:modelId==='m7-7b-nb136'?4:1,
         elapsed_seconds:.01,verification_status:'VERIFIED',possible_truncation:false,backend_revision:'LOCAL_MOCK',
@@ -87,11 +88,23 @@ try{
   await page.locator('#questionInput').focus();await page.keyboard.press('ArrowUp');
   assert.equal(await page.locator('#questionInput').inputValue(),'Câu hỏi bốn ảnh');
   await page.keyboard.press('ArrowDown');assert.equal(await page.locator('#questionInput').inputValue(),'');
+  for(let i=0;i<16;i++){
+    await page.locator('#questionInput').fill(i===15?'QA_LONG câu hỏi dài '+('nội dung '.repeat(70)):`QA message ${i}`);
+    await page.evaluate(()=>window.__qaTurnstile.callback('LOCAL_MOCK_ONLY'));
+    await page.locator('#sendButton').click();
+    await page.waitForFunction(expected=>document.querySelectorAll('.message').length===expected,2+2*(i+1));
+  }
+  assert.equal(await page.locator('.message').count(),34);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),1366);
+  if(process.env.VISUAL_QA_DIR)await page.screenshot({path:process.env.VISUAL_QA_DIR+'/after-34-messages-local-mock.png'});
+  await page.locator('#questionInput').fill('QA_429');await page.evaluate(()=>window.__qaTurnstile.callback('LOCAL_MOCK_ONLY'));
+  await page.locator('#sendButton').click();await page.locator('#errorNotice').getByText('Lỗi mock HTTP 429',{exact:false}).waitFor();
+  assert.equal(requests.filter(item=>item.path==='/infer-multi').length,18);
   await page.setViewportSize({width:320,height:700});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),320);
   await page.goto(origin+'/register.html');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),320);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight),700);
   assert.deepEqual(pageErrors,[]);
-  console.log('Browser UX mock PASS: 32/64/128/M7, gallery, viewer, recall, 320px layout; no GPU request.');
+  console.log('Browser UX mock PASS: 32/64/128/M7, gallery, viewer, recall, 34 messages, HTTP 429, 320px layout; no GPU request.');
 }finally{await browser?.close();server.close();}
