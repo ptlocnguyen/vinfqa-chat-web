@@ -677,6 +677,13 @@ img { max-width: 100%; }
 .model-selector-row label { display: flex; min-width: 0; align-items: center; gap: 8px; color: var(--soft); font-size: 12px; font-weight: 700; }
 .model-selector-row select { min-width: 210px; max-width: 100%; padding: 7px 30px 7px 9px; border: 1px solid var(--stroke); border-radius: 9px; background: var(--panel-2); color: var(--text); font: inherit; }
 .model-capability-status { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.backend-lifecycle-status { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.backend-lifecycle-status .status-dot { width: 7px; height: 7px; flex-basis: 7px; background: var(--soft); }
+.backend-lifecycle-status[data-state="ready"] .status-dot { background: var(--accent); }
+.backend-lifecycle-status[data-state="starting"] .status-dot,
+.backend-lifecycle-status[data-state="sleeping"] .status-dot { background: var(--warning); }
+.backend-lifecycle-status[data-state="unavailable"] .status-dot,
+.backend-lifecycle-status[data-state="unknown"] .status-dot { background: var(--soft); }
 .token-selector {
   display: grid;
   min-width: 0;
@@ -1075,6 +1082,7 @@ img { max-width: 100%; }
   .model-selector-row label { width: 100%; min-width: 0; }
   .model-selector-row select { width: 100%; min-width: 0; }
   .model-capability-status { width: 100%; padding-left: 2px; white-space: normal; }
+  .backend-lifecycle-status { padding-left: 2px; white-space: normal; }
   .token-selector { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
   .token-selector legend { grid-column: 1 / -1; padding: 0 2px 2px; }
   .token-option span { min-height: 36px; padding-inline: 5px; }

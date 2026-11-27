@@ -10,6 +10,7 @@ const root = document.documentElement;
 // Leave room for that 360s upstream ceiling plus gateway/quota overhead.
 const INFERENCE_TIMEOUT_MS = 390_000;
 const HEALTH_TIMEOUT_MS = 10_000;
+const BACKEND_STATUS_TIMEOUT_MS = 15_000;
 const TURNSTILE_LOAD_TIMEOUT_MS = 15_000;
 const HEALTH_RETRY_DELAYS_MS = [3_000,10_000,30_000];
 const MAX_SESSIONS = 10;
@@ -17,6 +18,7 @@ const state = {
   sessions: [], active: null, busy: false, turnstileToken: '', widgetId: null, verificationRequested: false,
   configured: /^https:\/\//.test(cfg.API_BASE_URL || '') && Boolean(cfg.TURNSTILE_SITE_KEY), serviceReady: false,
   healthAttempt: 0, healthTimer: null, turnstileStartedAt: 0, turnstileTimer: null,
+  backendStatusTimer:null, backendStatusBusy:false,
   authSession: null,
   supportedTokenLimits: [DEFAULT_MAX_NEW_TOKENS],
   models:uiModelCapabilities(null),
@@ -37,6 +39,7 @@ const refs = {
   tokenStatus: $('#tokenCapabilityStatus'), composerFootnote: $('#composerFootnote'),
   modelSelector:$('#modelSelector'),modelStatus:$('#modelCapabilityStatus'),tokenSelector:$('#tokenSelector'),
   activeModelTitle:$('#activeModelTitle'),activeModelVersion:$('#activeModelVersion'),
+  backendLifecycleStatus:$('#backendLifecycleStatus'),
 };
 
 const htmlElement = (tag, cls, text) => {
@@ -441,6 +444,10 @@ async function send() {
     let payload;
     try { payload = await response.json(); } catch { throw Error('Gateway trả về dữ liệu không hợp lệ.'); }
     if (!response.ok) {
+      if(Object.hasOwn(BACKEND_STATUS_LABELS,payload.backend_status)) {
+        setBackendLifecycleStatus(payload.backend_status);
+        if(payload.backend_status==='Starting')state.backendStatusTimer=setTimeout(()=>void checkBackendStatus(),20_000);
+      }
       if (payload.code === 'EXTENDED_BACKEND_UNAVAILABLE') {
         state.models=state.models.map(item=>item.model_id===UI_MODEL_IDS.EXTENDED?{...item,enabled:false}:item);syncModelControls();syncTokenControls();
       }
@@ -489,6 +496,26 @@ function setServiceState(ready, label) {
   state.serviceReady = ready; updateSendState(); refs.status.classList.toggle('ready',ready);
   refs.status.classList.toggle('paused',!ready); refs.status.lastChild.textContent = label;
 }
+const BACKEND_STATUS_LABELS=Object.freeze({Sleeping:'Backend đang ngủ',Starting:'Backend đang khởi động',Ready:'Backend sẵn sàng',Unavailable:'Backend không khả dụng',NOT_VERIFIED:'Backend chưa xác minh'});
+function setBackendLifecycleStatus(status) {
+  if(!refs.backendLifecycleStatus)return;
+  const known=Object.hasOwn(BACKEND_STATUS_LABELS,status)?status:'NOT_VERIFIED';
+  refs.backendLifecycleStatus.dataset.state=known==='Ready'?'ready':known==='Starting'?'starting':known==='Sleeping'?'sleeping':known==='Unavailable'?'unavailable':'unknown';
+  refs.backendLifecycleStatus.lastElementChild.textContent=' '+BACKEND_STATUS_LABELS[known];
+}
+async function checkBackendStatus() {
+  if (!refs.backendLifecycleStatus || state.backendStatusBusy || document.hidden || !state.configured) return;
+  const model=currentModel();if(!model)return;
+  state.backendStatusBusy=true;clearTimeout(state.backendStatusTimer);
+  try {
+    const url=new URL(cfg.API_BASE_URL.replace(/\/$/,'')+'/backend-status');url.searchParams.set('model_id',model.model_id);
+    const response=await fetch(url,{method:'GET',cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(BACKEND_STATUS_TIMEOUT_MS)});
+    const data=await response.json();if(!response.ok||data.model_id!==model.model_id)throw Error('backend status unavailable');
+    const status=Object.hasOwn(BACKEND_STATUS_LABELS,data.backend?.status)?data.backend.status:'NOT_VERIFIED';setBackendLifecycleStatus(status);
+    if(status==='Starting')state.backendStatusTimer=setTimeout(()=>void checkBackendStatus(),20_000);
+  } catch {setBackendLifecycleStatus('NOT_VERIFIED');}
+  finally {state.backendStatusBusy=false;}
+}
 function scheduleHealthRetry() {
   if (state.healthAttempt >= HEALTH_RETRY_DELAYS_MS.length || document.hidden) return;
   clearTimeout(state.healthTimer);
@@ -509,6 +536,7 @@ async function checkService(resetAttempts = false) {
     syncModelControls();
     syncTokenControls();
     setServiceState(ready,ready ? ' Gateway sẵn sàng' : ' Đang khóa inference');
+    void checkBackendStatus();
     if (!ready) scheduleHealthRetry();
   } catch {
     state.supportedTokenLimits = [DEFAULT_MAX_NEW_TOKENS];state.models=uiModelCapabilities(null);syncModelControls();syncTokenControls();
@@ -567,7 +595,7 @@ refs.modelSelector.addEventListener('change',()=>{
   if(next===session.modelId)return;
   if((sessionLocked(session)||imagesOf(session).length)&&!confirm('Đổi mô hình sẽ bắt đầu cuộc trò chuyện mới để không trộn ảnh hoặc lịch sử. Tiếp tục?')){refs.modelSelector.value=session.modelId;return;}
   if(sessionLocked(session)||imagesOf(session).length)addSession();
-  const target=current();target.modelId=next;syncModelControls();syncImageChip();syncTokenControls();updateSendState();showError();
+  const target=current();target.modelId=next;syncModelControls();syncImageChip();syncTokenControls();updateSendState();showError();void checkBackendStatus();
 });
 $('#newChat').onclick=()=>{if(!state.busy){const defaultInput=refs.tokenInputs.find((input)=>Number(input.value)===DEFAULT_MAX_NEW_TOKENS);if(defaultInput)defaultInput.checked=true;addSession();refs.question.value='';resizeInput();showError();closeSidebar();}};
 function closeSidebar(restoreFocus = false){refs.sidebar.classList.remove('open');refs.sidebarBackdrop.hidden=true;if(restoreFocus)refs.openSidebar.focus();}
@@ -603,7 +631,7 @@ $('#loadSampleImages').addEventListener('click',async()=>{
   }catch(error){showError(error.message||'Không nạp được ảnh mẫu.');}
 });
 window.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&refs.sidebar.classList.contains('open'))closeSidebar(true);if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();if(!state.busy) addSession();}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.configured)void checkService(true);});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.configured){void checkService(true);void checkBackendStatus();}});
 let dragDepth = 0;
 const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
 refs.composer.addEventListener('dragenter',(event)=>{
