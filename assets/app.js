@@ -18,7 +18,7 @@ const state = {
   sessions: [], active: null, busy: false, turnstileToken: '', widgetId: null, verificationRequested: false,
   configured: /^https:\/\//.test(cfg.API_BASE_URL || '') && Boolean(cfg.TURNSTILE_SITE_KEY), serviceReady: false,
   healthAttempt: 0, healthTimer: null, turnstileStartedAt: 0, turnstileTimer: null,
-  backendStatusTimer:null, backendStatusBusy:false,
+  backendStatusTimer:null, backendStatusBusy:false, backendStatusQueued:false,
   authSession: null,
   supportedTokenLimits: [DEFAULT_MAX_NEW_TOKENS],
   models:uiModelCapabilities(null),
@@ -504,17 +504,27 @@ function setBackendLifecycleStatus(status) {
   refs.backendLifecycleStatus.lastElementChild.textContent=' '+BACKEND_STATUS_LABELS[known];
 }
 async function checkBackendStatus() {
-  if (!refs.backendLifecycleStatus || state.backendStatusBusy || document.hidden || !state.configured) return;
+  if (!refs.backendLifecycleStatus || document.hidden || !state.configured) return;
+  clearTimeout(state.backendStatusTimer);
+  if(state.backendStatusBusy){state.backendStatusQueued=true;return;}
   const model=currentModel();if(!model)return;
-  state.backendStatusBusy=true;clearTimeout(state.backendStatusTimer);
+  const requestedModelId=model.model_id;
+  state.backendStatusBusy=true;
   try {
-    const url=new URL(cfg.API_BASE_URL.replace(/\/$/,'')+'/backend-status');url.searchParams.set('model_id',model.model_id);
+    const url=new URL(cfg.API_BASE_URL.replace(/\/$/,'')+'/backend-status');url.searchParams.set('model_id',requestedModelId);
     const response=await fetch(url,{method:'GET',cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(BACKEND_STATUS_TIMEOUT_MS)});
-    const data=await response.json();if(!response.ok||data.model_id!==model.model_id)throw Error('backend status unavailable');
-    const status=Object.hasOwn(BACKEND_STATUS_LABELS,data.backend?.status)?data.backend.status:'NOT_VERIFIED';setBackendLifecycleStatus(status);
+    const data=await response.json();if(!response.ok||data.model_id!==requestedModelId)throw Error('backend status unavailable');
+    const status=Object.hasOwn(BACKEND_STATUS_LABELS,data.backend?.status)?data.backend.status:'NOT_VERIFIED';
+    if(currentModel()?.model_id===requestedModelId)setBackendLifecycleStatus(status);else state.backendStatusQueued=true;
     if(status==='Starting')state.backendStatusTimer=setTimeout(()=>void checkBackendStatus(),20_000);
-  } catch {setBackendLifecycleStatus('NOT_VERIFIED');}
-  finally {state.backendStatusBusy=false;}
+  } catch {
+    if(currentModel()?.model_id===requestedModelId)setBackendLifecycleStatus('NOT_VERIFIED');
+    else state.backendStatusQueued=true;
+  }
+  finally {
+    state.backendStatusBusy=false;
+    if(state.backendStatusQueued&&!document.hidden){state.backendStatusQueued=false;setTimeout(()=>void checkBackendStatus(),0);}
+  }
 }
 function scheduleHealthRetry() {
   if (state.healthAttempt >= HEALTH_RETRY_DELAYS_MS.length || document.hidden) return;
