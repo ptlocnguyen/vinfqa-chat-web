@@ -89,3 +89,9 @@ Tạo checkpoint trong private artifact repository riêng, cố định immutabl
 - Copy answer/provenance và tải JSON/Markdown chạy phía trình duyệt. Export chứa văn bản, thứ tự/kích thước ảnh và provenance allowlist; không kèm tên file hay bytes ảnh. Một số mẫu credential phổ biến được che khỏi văn bản; hãy rà soát nội dung trước khi chia sẻ. JWT, Turnstile token và Secret không được lấy từ storage hoặc state ứng dụng. M7 chỉ lưu hội thoại trong tab.
 - Kiểm tra local: 13 unit tests PASS, cú pháp JavaScript PASS, tương tác mock browser cho chọn M7, gợi ý M7, nạp 4 ảnh và nạp/thay 1 ảnh PASS. Không gọi inference hoặc GPU. Turnstile thật chưa thể kiểm chứng localhost; CORS production chặn localhost.
 - Các smoke test production trước đây được ghi riêng ở trên và không chạy lại cho thay đổi giao diện. Smoke test xác nhận luồng chức năng trên mẫu tổng hợp, không chứng minh độ chính xác hoặc chất lượng mô hình.
+
+## UX/UI progressive disclosure (2026-11)
+
+The production chat interface is being refreshed on feature branch `feat/ux-progressive-disclosure-20261127`. It groups model and token selection, quota details, system status, account/theme actions, attachment actions, help and response exports into compact native disclosure menus while preserving the existing inference, authentication, Turnstile, history, image, provenance and export code paths. The sidebar supports desktop collapse and mobile drawer behavior; image galleries can be collapsed and reopened.
+
+Local browser preview was checked at 1920×1080, 390×844 and 320×700. The 320 px mobile viewport had no document-level horizontal overflow. Local preview cannot verify production CORS, Turnstile Siteverify or backend requests; do not treat those expected localhost restrictions as production failures. The production deployment revision is recorded in the GitHub Pages workflow after release.

@@ -42,6 +42,42 @@ const refs = {
   backendLifecycleStatus:$('#backendLifecycleStatus'),
 };
 
+function setupProgressiveDisclosure(){
+  const makeMenu=(className,label,parent,before=null)=>{const details=htmlElement('details',className);const summary=htmlElement('summary','disclosure-trigger',label);const panel=htmlElement('div','disclosure-panel');details.append(summary,panel);parent.insertBefore(details,before);return {details,summary,panel};};
+  const topbar=document.querySelector('.topbar');
+  const quota=makeMenu('quota-menu','GPU --',topbar,document.querySelector('.gpu-quota-strip'));
+  const quotaStrip=$('#gpuQuota');quota.panel.append(quotaStrip);
+  quota.summary.setAttribute('aria-label','Thông tin quota GPU');
+  const quotaObserver=new MutationObserver(()=>{quota.summary.textContent=$('#gpuQuotaCompact')?.textContent||'GPU --';quota.details.dataset.state=quotaStrip.dataset.state||'loading';});
+  quotaObserver.observe(quotaStrip,{attributes:true,subtree:true,childList:true,characterData:true});
+  const status=makeMenu('system-menu','Trạng thái',topbar,document.querySelector('.topbar-actions'));
+  status.summary.prepend(htmlElement('i','status-dot'));
+  status.panel.append(refs.status,refs.backendLifecycleStatus);
+  refs.backendLifecycleStatus.classList.add('system-backend-status');
+  const actions=document.querySelector('.topbar-actions');
+  const account=makeMenu('account-menu','Tài khoản',actions,null);
+  account.panel.append(refs.accountLink,refs.sidebarLogin,refs.sidebarRegister,$('#themeToggle'));
+  const modelRow=document.querySelector('.model-selector-row');
+  const composer=modelRow.parentElement;
+  const model=makeMenu('model-menu','Chọn mô hình',composer,modelRow);
+  model.panel.append(modelRow,refs.tokenSelector,refs.tokenStatus);
+  refs.modelSelector.addEventListener('change',()=>{model.summary.textContent=`${currentModel()?.label||'Chọn mô hình'} · ${selectedMaxNewTokens()} tokens`;});
+  for(const input of refs.tokenInputs)input.addEventListener('change',()=>{model.summary.textContent=`${currentModel()?.label||'Chọn mô hình'} · ${selectedMaxNewTokens()} tokens`;});
+  const sidebarVerify=document.querySelector('.sidebar-verification');
+  const composerBottom=document.querySelector('.composer-bottom');
+  composerBottom.insertBefore(sidebarVerify,composerBottom.querySelector('#openVerification'));
+  sidebarVerify.classList.add('inline-verification');
+  const attachmentMenu=makeMenu('attachment-menu','＋ Đính kèm',document.querySelector('.left-tools'),refs.attachButton);
+  attachmentMenu.panel.append(refs.attachButton,refs.sampleButton,refs.inputHint,refs.saveImageOption);
+  const sidebarBottom=document.querySelector('.sidebar-bottom');
+  const info=makeMenu('help-menu','Trợ giúp & thông tin',sidebarBottom,sidebarBottom.querySelector('.mini-info'));
+  info.panel.append(sidebarBottom.querySelector('.mini-info'),sidebarBottom.querySelector('p'),sidebarBottom.querySelector('a'),$('#aboutToggle'));
+  for(const menu of document.querySelectorAll('.topbar details, .sidebar-bottom details, .composer details')){
+    menu.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary')?.focus();}});
+    document.addEventListener('pointerdown',event=>{if(menu.open&&!menu.contains(event.target))menu.open=false;});
+  }
+}
+
 const htmlElement = (tag, cls, text) => {
   const element = document.createElement(tag);
   if (cls) element.className = cls;
@@ -197,6 +233,8 @@ function syncModelControls() {
   if(dropTitle)dropTitle.textContent=isM7?'Thả 2–4 ảnh theo đúng thứ tự':'Thả ảnh để bắt đầu phiên';
   if(dropHint)dropHint.textContent=isM7?'PNG, JPG hoặc WebP · tối đa 8 MB/ảnh, 24 MB tổng':'PNG, JPG hoặc WebP · tối đa 8 MB';
   if(session && model)session.modelId=model.model_id;
+  const modelSummary=document.querySelector('.model-menu > summary');
+  if(modelSummary)modelSummary.textContent=`${model?.label||'Chọn mô hình'} · ${selectedMaxNewTokens()} tokens`;
   renderPromptSuggestions(isM7);
 }
 function renderPromptSuggestions(isM7){
@@ -251,6 +289,8 @@ function createSessionImageNode(session) {
       : 'Ảnh của cuộc trò chuyện này không được lưu. Hãy tạo cuộc trò chuyện mới để tiếp tục hỏi trên một ảnh khác.';
     return htmlElement('div','session-image-missing',text);
   }
+  const disclosure=htmlElement('details','session-gallery-disclosure');
+  disclosure.append(htmlElement('summary','',`${images.length} ảnh của phiên · nhấn để mở`));
   const group=htmlElement('div','session-image-gallery');
   images.forEach((item,index)=>{
     const button = htmlElement('button','session-image-context');
@@ -260,7 +300,7 @@ function createSessionImageNode(session) {
     copy.append(htmlElement('strong','',`Ảnh ${index+1}: ${item.file.name}`),htmlElement('small','', 'Ảnh cố định · Nhấn để xem lớn'));
     button.append(image,copy,htmlElement('span','session-image-action','Xem ảnh'));
     button.onclick = () => openImageViewer(session,index);group.append(button);
-  });return group;
+  });disclosure.append(group);return disclosure;
 }
 function createMessageNode(msg) {
   const wrap = htmlElement('article', `message ${msg.role}`);
@@ -295,12 +335,14 @@ function createMessageNode(msg) {
     content.append(details);
   }
   if(msg.role==='assistant'&&!msg.loading&&msg.text){
-    const actions=htmlElement('div','message-actions');
+    const actions=htmlElement('details','message-actions-menu');
+    const actionSummary=htmlElement('summary','icon-btn','⋯');actionSummary.setAttribute('aria-label','Thao tác câu trả lời');actionSummary.title='Thao tác câu trả lời';actions.append(actionSummary);
+    const actionPanel=htmlElement('div','message-actions');actions.append(actionPanel);
     const copyAnswer=htmlElement('button','text-btn','Sao chép câu trả lời');copyAnswer.type='button';copyAnswer.onclick=()=>copyText(msg.text,copyAnswer);
-    if(msg.meta){const copyMeta=htmlElement('button','text-btn','Sao chép provenance');copyMeta.type='button';copyMeta.onclick=()=>copyText(JSON.stringify(safeProvenance(msg.meta),null,2),copyMeta);actions.append(copyMeta);}
+    if(msg.meta){const copyMeta=htmlElement('button','text-btn','Sao chép provenance');copyMeta.type='button';copyMeta.onclick=()=>copyText(JSON.stringify(safeProvenance(msg.meta),null,2),copyMeta);actionPanel.append(copyMeta);}
     const json=htmlElement('button','text-btn','Tải JSON');json.type='button';json.onclick=()=>downloadConversation('json');
     const markdown=htmlElement('button','text-btn','Tải Markdown');markdown.type='button';markdown.onclick=()=>downloadConversation('markdown');
-    actions.prepend(copyAnswer);actions.append(json,markdown);content.append(actions);
+    actionPanel.prepend(copyAnswer);actionPanel.append(json,markdown);content.append(actions);
   }
   wrap.append(content); return wrap;
 }
@@ -616,7 +658,7 @@ refs.modelSelector.addEventListener('change',()=>{
 });
 $('#newChat').onclick=()=>{if(!state.busy){const defaultInput=refs.tokenInputs.find((input)=>Number(input.value)===DEFAULT_MAX_NEW_TOKENS);if(defaultInput)defaultInput.checked=true;addSession();refs.question.value='';resizeInput();showError();closeSidebar();}};
 function closeSidebar(restoreFocus = false){refs.sidebar.classList.remove('open');refs.sidebarBackdrop.hidden=true;if(restoreFocus)refs.openSidebar.focus();}
-refs.openSidebar.onclick=()=>{refs.sidebar.classList.add('open');refs.sidebarBackdrop.hidden=false;refs.closeSidebar.focus();};
+refs.openSidebar.onclick=()=>{if(matchMedia('(min-width: 1025px)').matches){document.querySelector('.app-shell').classList.toggle('sidebar-collapsed');return;}refs.sidebar.classList.add('open');refs.sidebarBackdrop.hidden=false;refs.closeSidebar.focus();};
 refs.closeSidebar.onclick=()=>closeSidebar(true);
 refs.sidebarBackdrop.onclick=()=>closeSidebar(true);
 refs.verifyTrigger.onclick=()=>{
@@ -680,10 +722,12 @@ for (const link of [refs.accountLink,refs.sidebarLogin,refs.sidebarRegister]) {
   });
 }
 async function initialize() {
+  setupProgressiveDisclosure();
   if (authConfigured) state.authSession = await getSession();
   updateAccountUI();
   const loaded = await loadRemoteHistory();
   if (loaded) render(); else addSession();
+  syncModelControls();
   initTurnstile();
 }
 void initialize();
