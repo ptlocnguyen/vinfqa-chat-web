@@ -1367,3 +1367,30 @@ img { max-width: 100%; }
 .provenance-branch { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .provenance-dialog pre { max-height: 60dvh; overflow: auto; padding: 12px; border-radius: 10px; background: var(--surface); font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .account-menu #themeToggle { display: flex; }
+
+/* ZeroGPU summary in the top navigation; detail panel keeps its existing layout. */
+.quota-menu { min-width: 0; }
+.quota-menu > summary { display: flex; width: 220px; height: 36px; min-height: 36px; flex-direction: column; justify-content: center; gap: 4px; padding: 5px 9px; }
+.quota-menu > summary::before,.quota-menu > summary::after { display: none; }
+.mini-quota-top { display: flex; width: 100%; min-width: 0; align-items: center; gap: 5px; line-height: 14px; }
+.mini-quota-dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--soft); }
+.mini-quota-label-desktop,.mini-quota-label-mobile { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.mini-quota-value,.mini-quota-remaining { margin-left: auto; color: var(--text); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mini-quota-label-mobile,.mini-quota-remaining { display: none; }
+.mini-quota-progress { display: block; width: 100%; height: 4px; overflow: hidden; border-radius: 999px; background: var(--stroke-strong); }
+.mini-quota-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--soft); transition: width .25s ease; }
+.quota-menu[data-state="available"] .mini-quota-dot,.quota-menu[data-state="available"] .mini-quota-fill { background: var(--accent); }
+.quota-menu[data-state="low"] .mini-quota-dot,.quota-menu[data-state="low"] .mini-quota-fill { background: var(--warning); }
+.quota-menu[data-state="exhausted"] .mini-quota-dot,.quota-menu[data-state="exhausted"] .mini-quota-fill { background: var(--danger); }
+.quota-menu[data-state="unavailable"] .mini-quota-dot,.quota-menu[data-state="unavailable"] .mini-quota-fill { background: var(--soft); }
+@media (max-width: 700px) {
+  .quota-menu > summary { width: 122px; min-width: 122px; padding-inline: 7px; }
+  .mini-quota-label-desktop,.mini-quota-value { display: none; }
+  .mini-quota-label-mobile,.mini-quota-remaining { display: inline; }
+  .mini-quota-top { gap: 4px; }
+}
+@media (max-width: 420px) {
+  .quota-menu > summary { width: 114px; min-width: 114px; padding-inline: 6px; }
+  .mini-quota-top { font-size: 10px; }
+  .mini-quota-remaining { font-size: 10px; }
+}
