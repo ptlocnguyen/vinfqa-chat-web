@@ -13,3 +13,7 @@ test('server capability is authoritative for M7 availability',()=>{
   assert.equal(validateImageCount(models[2],2),true);assert.equal(validateImageCount(models[2],4),true);
   assert.equal(validateImageCount(models[2],1),false);assert.equal(validateImageCount(models[2],5),false);
 });
+test('unknown model IDs fail closed instead of silently selecting v04',()=>{
+  const models=uiModelCapabilities(null);
+  assert.equal(modelForSession(models,'unknown-model'),null);
+});

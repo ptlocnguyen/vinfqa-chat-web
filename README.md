@@ -9,7 +9,9 @@ Frontend HTML/CSS/JavaScript thuần cho SSRC v04, Extended 4B và M7 7B multi-i
 - `config.js`: chỉ chứa Worker URL, Turnstile site key, Supabase URL và publishable key công khai.
 - `assets/app.js`: chat theo model capability, khóa 1 ảnh cho S3 hoặc 2–4 ảnh có thứ tự cho M7, đồng bộ lịch sử, Turnstile và `/infer`/`/infer-multi`.
 - `assets/model-registry.mjs`: ánh xạ registry từ `/health` thành các lựa chọn UI; model bị tắt không thể được chọn.
-- `assets/inference-mode.mjs`: chuẩn hóa capability 32/64/128 và cách trình bày provenance SSRC v04/Extended Demo.
+- `assets/inference-mode.mjs`: chuẩn hóa capability 32/64/128, identity model và trình bày provenance theo mode/cap/output thực tế.
+- `assets/conversation-export.mjs`: xuất JSON/Markdown cục bộ theo allowlist metadata; không kèm bytes ảnh hoặc credential.
+- `assets/samples/`: bốn infographic tổng hợp dùng làm ảnh mẫu tùy chọn; nạp ảnh không tự gửi câu hỏi.
 - `assets/auth.js`, `assets/supabase-auth.js`, `assets/auth.css`: giao diện tài khoản, session/refresh token và kết nối Supabase Auth.
 - `assets/quota.js`: đọc quota tài khoản demo qua `/quota` mỗi 120 giây.
 - `assets/styles.css`: responsive, dark/light theme và trạng thái quota.
@@ -65,15 +67,25 @@ node --check .\assets\reset-password.js
 - Artifact M7: private repo revision `a3c1de52625fb5ce6d810c8bccfecef6bb55c013`; adapter SHA-256 `78065f44555a6fbee907400c61fe6e6121ac31f70b5dc4468964634b103eb131`.
 - Ba production smoke test dùng ảnh tổng hợp nguyên gốc đều PASS: Extended@64 trả `20` (3/64 tokens); M7 hai ảnh trả `30` (3/96); M7 bốn ảnh trả `41` (3/96). Thời gian giao diện lần lượt khoảng 1,633; 1,267; 1,515 giây theo định dạng thập phân `vi-VN`. Quota HF ghi nhận giảm 291→279 giây trong chiến dịch.
 - Đây là kiểm tra routing/inference trên ví dụ tổng hợp, không phải đánh giá benchmark hay bằng chứng tăng chất lượng VQA. UI hiển thị model và số token; JSON provenance chi tiết vẫn thu gọn trong ảnh kiểm thử nên các trường ẩn chưa được đối chiếu độc lập. VRAM/RAM thực tế không được đo.
-- Không bật dịch vụ GPU trả phí hoặc đổi billing. Đây là mức dùng ZeroGPU miễn phí trong quota được cấp; không bảo đảm quota luôn sẵn có hoặc không bị thay đổi theo chính sách Hugging Face. Quota tài khoản chia sẻ còn 279/300 giây ở lần đọc sau smoke tests (reset dự kiến `2026-11-25T17:38:49Z`). Giới hạn Gateway hiện tại: một inference đồng thời toàn cục; Extended tối đa 4 lượt/ngày toàn hệ thống và 1 lượt/IP cho mỗi mức token; M7 tối đa 2 lượt/ngày toàn hệ thống và 2 lượt/IP. Quota HF vẫn là giới hạn upstream.
+- Không bật dịch vụ GPU trả phí hoặc đổi billing. Đây là mức dùng ZeroGPU miễn phí trong quota được cấp; không bảo đảm quota luôn sẵn có hoặc không bị thay đổi theo chính sách Hugging Face. Quota tài khoản chia sẻ còn 279/300 giây ở lần đọc sau smoke tests (reset dự kiến `2026-11-25T17:38:49Z`). Gateway production từ 2026-11-25 đã bỏ giới hạn inference/ngày do ứng dụng đặt trên toàn hệ thống và theo IP. Durable Object vẫn cho một inference đồng thời; Turnstile, upload limits, timeout và quota ZeroGPU Hugging Face vẫn áp dụng. Không tự động retry lỗi hết quota.
 
 ## Rollback
 
 1. Tắt M7 trước bằng cách đặt `M7_DEMO_ENABLED=false` cho Worker production; xác nhận `/health` báo M7 disabled và 32/64/128 vẫn bật. Trong `wrangler.jsonc`, M7 hiện mặc định `false`; production đã được bật bằng override triển khai.
-2. Nếu cần khôi phục toàn bộ Worker về trạng thái trước khi bật M7, dùng Cloudflare version `a6f3341f-334c-481a-8173-75eefc12e8e4`; sau rollback kiểm tra Extended vẫn bật và M7 đã tắt.
-3. Nếu cần khôi phục frontend, dùng GitHub Pages deployment/run `45382840715` của commit `e24cfb082f6cfeffc63c5829e3e13c808882c3c6`, hoặc revert commit multi-model trên `main` rồi chờ Pages deploy.
+2. Nếu cần khôi phục toàn bộ Worker về trạng thái trước khi bật M7, dùng Cloudflare version `a6f3341f-334c-481a-8173-75eefc12e8e4`; sau rollback kiểm tra Extended vẫn bật và M7 đã tắt. Bản bỏ quota lượt/ngày được phát hành ở Worker version `0edd4b71-e6ff-42a9-9ff2-df566d9f51db`; tránh rollback về bản cũ nếu cần giữ chính sách này.
+3. Mốc frontend trước lần hoàn thiện UI ngày 2026-11-27 là GitHub Pages workflow run `45545761595`, commit `6472c2052a73f58557b35c42a25d9b9d0a1680fc`. Có thể revert commit UI mới trên `main` rồi chờ Pages workflow hoàn tất.
 4. Không rollback hay chỉnh Space SSRC v04. Chỉ rollback Space Extended nếu lỗi thuộc backend; revision trước multi-model là `ff784e9cd72c032e42c8dbf2bd231139e65c09c2`. Worker rollback không tự hoàn tác quota, Durable Object state hoặc Secrets.
 
 ## Bổ sung model/checkpoint hoặc pipeline mới
 
 Tạo checkpoint trong private artifact repository riêng, cố định immutable revision và SHA-256 manifest, rồi xác minh quyền đọc bằng token read-only riêng. Đăng ký model ID/API contract và provenance riêng; thêm load/public gate độc lập để có thể nạp kiểm tra kín trước khi công bố. Kiểm tra tương thích prompt/preprocessing, RAM/VRAM, thời gian khởi động, concurrency chung và quota trước khi phát hành. Bổ sung mock tests cho routing, validation, timeout, provenance và rollback; chỉ chạy số lượt GPU tối thiểu đã được duyệt. Không ghi đè checkpoint cũ; không áp dụng migration Supabase cho đến khi được phê duyệt riêng.
+
+## Hoàn thiện giao diện và bằng chứng — 2026-11-27
+
+- Giao diện phân biệt SSRC v04, Extended 4B và M7 7B. M7 không nhận nhãn branch S3 khi provenance không có branch/route.
+- Chỉ trình bày provenance VERIFIED khi backend gửi `verification_status=VERIFIED`, cap đúng với mode và output token count không vượt cap. Metadata thiếu hoặc không hợp lệ hiển thị `NOT_VERIFIED`; cap M7 không bị mặc định về 32.
+- Model ID lạ không tự chuyển sang v04. Trước lượt hỏi đầu, có thể thay ảnh single-image mà không bị tính nhầm vào giới hạn ảnh.
+- Gợi ý câu hỏi theo model. Nút “Ảnh mẫu” nạp một ảnh giả lập cho S3/Extended hoặc bốn ảnh giả lập đúng thứ tự cho M7; không tự gửi yêu cầu.
+- Copy answer/provenance và tải JSON/Markdown chạy phía trình duyệt. Export chứa văn bản, thứ tự/kích thước ảnh và provenance allowlist; không kèm tên file hay bytes ảnh. Một số mẫu credential phổ biến được che khỏi văn bản; hãy rà soát nội dung trước khi chia sẻ. JWT, Turnstile token và Secret không được lấy từ storage hoặc state ứng dụng. M7 chỉ lưu hội thoại trong tab.
+- Kiểm tra local: 13 unit tests PASS, cú pháp JavaScript PASS, tương tác mock browser cho chọn M7, gợi ý M7, nạp 4 ảnh và nạp/thay 1 ảnh PASS. Không gọi inference hoặc GPU. Turnstile thật chưa thể kiểm chứng localhost; CORS production chặn localhost.
+- Các smoke test production trước đây được ghi riêng ở trên và không chạy lại cho thay đổi giao diện. Smoke test xác nhận luồng chức năng trên mẫu tổng hợp, không chứng minh độ chính xác hoặc chất lượng mô hình.

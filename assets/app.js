@@ -1,6 +1,7 @@
 import {accountLabel, authConfigured, fetchPrivateImage, getSession, signOut} from './supabase-auth.js';
-import {DEFAULT_MAX_NEW_TOKENS, provenancePresentation, supportedTokenLimits as readSupportedTokenLimits} from './inference-mode.mjs';
+import {assistantModelLabel,DEFAULT_MAX_NEW_TOKENS,provenanceBranch,provenancePresentation, supportedTokenLimits as readSupportedTokenLimits} from './inference-mode.mjs';
 import {UI_MODEL_IDS,modelForSession,uiModelCapabilities,validateImageCount} from './model-registry.mjs';
+import {conversationMarkdown,exportConversation,safeProvenance} from './conversation-export.mjs';
 
 const cfg = window.VINFQA_PUBLIC_CONFIG || {};
 const $ = (selector) => document.querySelector(selector);
@@ -28,6 +29,7 @@ const refs = {
   accountLink: $('#accountLink'), accountLabel: $('#accountLabel'), sidebarLogin: $('#sidebarLogin'), sidebarRegister: $('#sidebarRegister'),
   saveImageOption: $('#saveImageOption'), saveImage: $('#saveImage'),
   composer: $('#composer'), attachButton: $('#attachButton'), inputHint: $('.input-hint'), sessionLock: $('#sessionLockState'),
+  sampleButton: $('#loadSampleImages'),
   imageViewer: $('#imageViewer'), imageViewerContent: $('#imageViewerContent'), imageViewerMeta: $('#imageViewerMeta'),
   tokenInputs: [...document.querySelectorAll('input[name="max_new_tokens"]')],
   tokenStatus: $('#tokenCapabilityStatus'), composerFootnote: $('#composerFootnote'),
@@ -115,6 +117,7 @@ async function loadRemoteHistory() {
       const assistantMeta=messages.find(message=>message.role==='assistant'&&message.meta)?.meta;
       const historicalModel=assistantMeta?.model_id===UI_MODEL_IDS.M7 ? UI_MODEL_IDS.M7 :
         (assistantMeta?.inference_mode==='EXTENDED_DEMO' ? UI_MODEL_IDS.EXTENDED : UI_MODEL_IDS.V04);
+      messages.forEach((message)=>{message.modelId=historicalModel;});
       return {
         id:conversation.id, title:conversation.title || 'Cuộc trò chuyện mới', messages,
         images:[],modelId:historicalModel,
@@ -187,7 +190,23 @@ function syncModelControls() {
   const dropHint=refs.composer.querySelector('.drop-overlay small');
   if(dropTitle)dropTitle.textContent=isM7?'Thả 2–4 ảnh theo đúng thứ tự':'Thả ảnh để bắt đầu phiên';
   if(dropHint)dropHint.textContent=isM7?'PNG, JPG hoặc WebP · tối đa 8 MB/ảnh, 24 MB tổng':'PNG, JPG hoặc WebP · tối đa 8 MB';
-  if(session)session.modelId=model?.model_id || UI_MODEL_IDS.V04;
+  if(session && model)session.modelId=model.model_id;
+  renderPromptSuggestions(isM7);
+}
+function renderPromptSuggestions(isM7){
+  const examples=$('#examples');
+  const prompts=isM7?[
+    ['So sánh số liệu','Đọc và so sánh số liệu giữa các ảnh.'],
+    ['Tính chênh lệch','Nêu số liệu ở từng ảnh rồi tính chênh lệch giữa chúng.'],
+    ['Tổng hợp nhiều ảnh','Tổng hợp thông tin chính xuất hiện trong các ảnh.'],
+    ['Tìm thông tin','Ảnh nào chứa thông tin về nội dung tôi cần tìm?'],
+  ]:[
+    ['Tóm tắt nội dung','Infographic này nói về chủ đề gì?'],
+    ['Đếm thông tin','Có bao nhiêu nội dung được liệt kê trong ảnh?'],
+    ['Đọc số liệu','Những số liệu chính trong infographic là gì?'],
+    ['Tìm quy định','Các quy định được nêu ở phần nào của infographic?'],
+  ];
+  examples.replaceChildren(...prompts.map(([title,prompt],index)=>{const button=htmlElement('button');button.type='button';button.dataset.prompt=prompt;button.append(htmlElement('strong','',title),htmlElement('small','',isM7?'Soạn câu hỏi cho bộ ảnh theo thứ tự':'Nắm nhanh thông tin trong một ảnh'));return button;}));
 }
 function syncTokenControls() {
   const model=currentModel();
@@ -241,7 +260,7 @@ function createMessageNode(msg) {
   const wrap = htmlElement('article', `message ${msg.role}`);
   if (msg.role === 'assistant') wrap.append(htmlElement('div', 'bot-avatar', 'V'));
   const content = htmlElement('div', 'message-content');
-  if (msg.role === 'assistant') content.append(htmlElement('div', 'msg-label', msg.meta?.model_id===UI_MODEL_IDS.M7?'M7 QLoRA 7B · Trợ lý multi-image':'S3-QLoRA · Trợ lý infographic'));
+  if (msg.role === 'assistant') content.append(htmlElement('div', 'msg-label', assistantModelLabel(msg.modelId,msg.meta)));
   content.append(htmlElement('div', 'msg-body', msg.text));
   if (msg.notice) content.append(htmlElement('div', 'message-note', msg.notice));
   if (msg.loading) {
@@ -255,9 +274,13 @@ function createMessageNode(msg) {
     const pills = htmlElement('div', 'message-meta');
     const meta = msg.meta; const presentation = provenancePresentation(meta);
     pills.append(htmlElement('span','meta-pill mode',presentation.modeLabel));
-    pills.append(htmlElement('span','meta-pill', meta.selected_branch || meta.route_predicted || 'S3-QLoRA'));
+    const branch=provenanceBranch(meta);
+    if(branch)pills.append(htmlElement('span','meta-pill',branch));
+    const session=current();
+    if(session){const count=imagesOf(session).length;const metadataCount=Number.isInteger(meta.image_count)?meta.image_count:null;pills.append(htmlElement('span','meta-pill',count?`${count} ảnh`:(metadataCount!==null?`${metadataCount} ảnh`:'Số ảnh chưa xác minh')));}
     if (typeof meta.elapsed_seconds === 'number') pills.append(htmlElement('span','meta-pill', `${meta.elapsed_seconds.toLocaleString('vi-VN')} giây`));
     pills.append(htmlElement('span','meta-pill',presentation.tokenLabel));
+    pills.append(htmlElement('span',`meta-pill ${presentation.verified?'':'warn'}`,presentation.verified?'Provenance đã xác minh':'NOT_VERIFIED'));
     if (presentation.truncation) pills.append(htmlElement('span','meta-pill warn',presentation.truncation));
     content.append(pills);
     const details = htmlElement('details','detail-box');
@@ -265,9 +288,25 @@ function createMessageNode(msg) {
     details.append(htmlElement('pre','', JSON.stringify(meta, null, 2)));
     content.append(details);
   }
+  if(msg.role==='assistant'&&!msg.loading&&msg.text){
+    const actions=htmlElement('div','message-actions');
+    const copyAnswer=htmlElement('button','text-btn','Sao chép câu trả lời');copyAnswer.type='button';copyAnswer.onclick=()=>copyText(msg.text,copyAnswer);
+    if(msg.meta){const copyMeta=htmlElement('button','text-btn','Sao chép provenance');copyMeta.type='button';copyMeta.onclick=()=>copyText(JSON.stringify(safeProvenance(msg.meta),null,2),copyMeta);actions.append(copyMeta);}
+    const json=htmlElement('button','text-btn','Tải JSON');json.type='button';json.onclick=()=>downloadConversation('json');
+    const markdown=htmlElement('button','text-btn','Tải Markdown');markdown.type='button';markdown.onclick=()=>downloadConversation('markdown');
+    actions.prepend(copyAnswer);actions.append(json,markdown);content.append(actions);
+  }
   wrap.append(content); return wrap;
 }
 function scrollToBottom() { requestAnimationFrame(() => { refs.messages.scrollTop = refs.messages.scrollHeight; }); }
+async function copyText(value,button){try{await navigator.clipboard.writeText(String(value??''));const original=button.textContent;button.textContent='Đã sao chép';setTimeout(()=>{button.textContent=original;},1600);}catch{showError('Không thể truy cập clipboard. Hãy kiểm tra quyền trình duyệt.');}}
+function downloadConversation(format){
+  const session=current();if(!session)return;
+  const data=exportConversation(session,state.models);
+  const content=format==='markdown'?conversationMarkdown(data):JSON.stringify(data,null,2);
+  const blob=new Blob([content],{type:format==='markdown'?'text/markdown;charset=utf-8':'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob);const link=htmlElement('a');link.href=url;link.download=`vinfqa-conversation-${new Date().toISOString().replace(/[:.]/g,'-')}.${format==='markdown'?'md':'json'}`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 function openImageViewer(session = current(),index=0) {
   const item=imagesOf(session)[index];if(!item)return;
   refs.imageViewerContent.src = item.url;
@@ -305,6 +344,7 @@ function updateSendState() {
   refs.question.disabled = state.busy || unavailable;
   refs.question.placeholder = unavailable ? 'Phiên này không còn ảnh để tiếp tục' : (sessionLocked(session) ? 'Hỏi tiếp về infographic này…' : (model?.model_id===UI_MODEL_IDS.M7?'Chọn 2–4 ảnh rồi đặt câu hỏi…':'Chọn một ảnh rồi đặt câu hỏi…'));
   refs.imageInput.disabled = state.busy || sessionLocked(session);
+  refs.sampleButton.disabled=state.busy||sessionLocked(session);
   syncTokenControls();
 }
 async function checkImage(file) {
@@ -318,13 +358,14 @@ async function chooseFiles(files) {
   const candidates=Array.from(files||[]);if(!candidates.length)return;
   try {
     if (sessionLocked(current())) throw Error('Ảnh đã khóa cho phiên này. Hãy tạo cuộc trò chuyện mới để đổi ảnh.');
-    const session=current();const model=currentModel();const existing=imagesOf(session);
-    if(existing.length+candidates.length>model.image_max)throw Error(`Mô hình ${model.label} chỉ nhận tối đa ${model.image_max} ảnh.`);
+    const session=current();const model=currentModel();if(!model)throw Error('Mã mô hình của phiên không còn được hỗ trợ. Hãy tạo cuộc trò chuyện mới.');const existing=imagesOf(session);
+    const baseImages=model.image_max===1?[]:existing;
+    if(baseImages.length+candidates.length>model.image_max)throw Error(`Mô hình ${model.label} chỉ nhận tối đa ${model.image_max} ảnh.`);
     for(const file of candidates)await checkImage(file);
-    const combinedBytes=[...(model.image_max===1?[]:existing),...candidates.map(file=>({file}))].reduce((sum,item)=>sum+item.file.size,0);
+    const combinedBytes=[...baseImages,...candidates.map(file=>({file}))].reduce((sum,item)=>sum+item.file.size,0);
     if(combinedBytes>24*1024*1024)throw Error('Tổng dung lượng ảnh vượt quá 24 MB. Vui lòng giảm kích thước ảnh.');
     if(model.image_max===1)for(const item of existing)if(item.url)URL.revokeObjectURL(item.url);
-    session.images=[...(model.image_max===1?[]:existing),...candidates.map(file=>({file,url:URL.createObjectURL(file)}))];
+    session.images=[...baseImages,...candidates.map(file=>({file,url:URL.createObjectURL(file)}))];
     showError(); syncImageChip(); updateSendState();
   } catch (error) { showError(error.message || 'Không đọc được ảnh.'); }
 }
@@ -351,6 +392,7 @@ function retryLabel(value) {
 }
 async function send() {
   const session = current(); const question = refs.question.value.trim();const images=imagesOf(session);const model=currentModel();
+  if(!model){showError('Mã mô hình của phiên không còn được hỗ trợ. Hãy tạo cuộc trò chuyện mới.');return;}
   if (!state.configured || state.busy || !validateImageCount(model,images.length) || !question || !state.turnstileToken) return;
   const isFirstTurn = !sessionLocked(session);
   const maxNewTokens = selectedMaxNewTokens();
@@ -368,9 +410,9 @@ async function send() {
   showError(sessionExpired ? 'Phiên đăng nhập đã hết hạn. Lượt này sẽ không được đồng bộ vào tài khoản.' : '');
   state.busy = true; updateSendState();
   if (!session.messages.length) session.title = question.length > 37 ? question.slice(0,37) + '…' : question;
-  const userMessage = {id:crypto.randomUUID(),role:'user',text:question};
+  const userMessage = {id:crypto.randomUUID(),role:'user',text:question,createdAt:new Date().toISOString(),modelId:model.model_id};
   session.messages.push(userMessage);
-  const assistant = {id: crypto.randomUUID(), role: 'assistant', text: '', loading: true};
+  const assistant = {id: crypto.randomUUID(), role: 'assistant', text: '', loading: true,createdAt:null,modelId:model.model_id};
   session.messages.push(assistant); refs.question.value = ''; resizeInput(); render();
   const token = state.turnstileToken; state.turnstileToken = '';
   try {
@@ -406,6 +448,7 @@ async function send() {
     if (payload.status !== 'INFERENCE_COMPLETED') throw Error('Backend không hoàn thành lượt suy luận.');
     assistant.text = typeof payload.answer === 'string' ? payload.answer : '';
     assistant.meta = payload.provenance || null;
+     assistant.createdAt = new Date().toISOString();
     if (payload.image_saved === true) session.imageStored = true;
     if (payload.history_mode === 'LOCAL_ONLY')
       assistant.notice = 'M7: cuộc trò chuyện chỉ được giữ trong tab này; chưa đồng bộ lên tài khoản.';
@@ -420,6 +463,7 @@ async function send() {
     assistant.text = 'Không thể hoàn thành lượt suy luận. ' + message;
     showError(message);
   } finally {
+    if(!assistant.createdAt)assistant.createdAt=new Date().toISOString();
     assistant.loading = false; state.busy = false; resetChallenge();
     window.dispatchEvent(new CustomEvent('vinfqa:inference-finished'));
     render(); refs.question.focus();
@@ -532,6 +576,16 @@ refs.imageViewer.addEventListener('close',()=>refs.imageViewerContent.removeAttr
 refs.refreshCaptcha.onclick=()=>{showError();rerenderTurnstile();};
 $('#examples').addEventListener('click',(event)=>{
   const button=event.target.closest('[data-prompt]');if(button){refs.question.value=button.dataset.prompt;resizeInput();updateSendState();refs.question.focus();}
+});
+$('#loadSampleImages').addEventListener('click',async()=>{
+  const model=currentModel();if(!model){showError('Mã mô hình không khả dụng.');return;}
+  if(sessionLocked(current())){showError('Hãy tạo cuộc trò chuyện mới trước khi nạp ảnh mẫu.');return;}
+  if(imagesOf(current()).length&&!confirm('Thay bộ ảnh đang chọn bằng ảnh mẫu tổng hợp?'))return;
+  try{
+    const names=model.model_id===UI_MODEL_IDS.M7?['khu-vuc-a','khu-vuc-b','khu-vuc-c','khu-vuc-d']:['khu-vuc-a'];
+    const files=await Promise.all(names.map(async(name)=>{const response=await fetch(`./assets/samples/${name}.png`,{credentials:'omit',cache:'force-cache'});if(!response.ok)throw Error('Không tải được ảnh mẫu.');return new File([await response.blob()],`${name}.png`,{type:'image/png'});}));
+    await chooseFiles(files);
+  }catch(error){showError(error.message||'Không nạp được ảnh mẫu.');}
 });
 window.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&refs.sidebar.classList.contains('open'))closeSidebar(true);if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();if(!state.busy) addSession();}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.configured)void checkService(true);});

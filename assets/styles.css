@@ -911,6 +911,13 @@ img { max-width: 100%; }
 .about-dialog p { color: var(--muted); font-size: 14px; line-height: 1.75; }
 .about-dialog .dialog-alert { color: #e8b4a1; }
 .dialog-ok { min-height: 42px; padding: 9px 18px; border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 750; }
+.sample-button { min-height: 38px; padding: 7px 11px; border: 1px solid var(--stroke); border-radius: 10px; background: var(--surface); color: var(--text); font-weight: 700; white-space: nowrap; }
+.sample-button:hover { border-color: var(--accent); color: var(--accent); }
+.sample-button:disabled { opacity: .55; cursor: not-allowed; }
+.message-actions { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; }
+.message-actions .text-btn { padding: 3px 0; }
+.meta-pill.warn { border-color: #80652b; color: #e8c477; }
+.theme-light .meta-pill.warn { border-color: #b68c34; color: #77520a; }
 
 .theme-light {
   color-scheme: light;

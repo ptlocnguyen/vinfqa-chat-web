@@ -20,7 +20,7 @@ export function uiModelCapabilities(healthPayload) {
 }
 
 export function modelForSession(models, modelId) {
-  return models.find(model=>model.model_id===modelId) || models.find(model=>model.model_id===UI_MODEL_IDS.V04);
+  return models.find(model=>model.model_id===modelId) || null;
 }
 
 export function validateImageCount(model, count) {
