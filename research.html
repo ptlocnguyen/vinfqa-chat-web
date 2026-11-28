@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; connect-src 'self' https://vinfqa-public-gateway.ptlocnguyen.workers.dev https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="theme-color" content="#0e1117" />
+  <meta name="description" content="Research Workspace cho so sánh có kiểm soát trên infographic tổng hợp." />
+  <title>Research Workspace · VietInfographicQA</title>
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20261128-4" />
+  <link rel="stylesheet" href="./assets/research.css?v=20261128-1" />
+</head>
+<body class="research-page">
+  <header class="research-header">
+    <a class="research-brand" href="./index.html" aria-label="VietInfographicQA · về Chat"><span class="brand-mark">V</span><span><strong>VietInfographicQA</strong><small>RESEARCH WORKSPACE</small></span></a>
+    <nav class="research-nav" aria-label="Điều hướng chính"><a href="./index.html">Chat</a><a href="./research.html" aria-current="page">Research</a></nav>
+    <div class="research-header-end"><span id="researchGateway" class="research-connection" role="status">Đang kiểm tra Gateway</span><button id="researchTheme" type="button" class="research-icon-button" aria-label="Đổi giao diện sáng tối" title="Đổi giao diện sáng tối">☼</button></div>
+  </header>
+  <main class="research-main">
+    <section class="research-intro">
+      <div><p class="research-eyebrow">KHÔNG GỬI TỰ ĐỘNG · KHÔNG DÙNG TEST SET</p><h1>So sánh có kiểm soát.</h1><p>Chọn ảnh tổng hợp hoặc tải ảnh của bạn, đặt các lượt thử cạnh nhau và gửi từng lượt bằng xác minh Turnstile riêng.</p></div>
+      <div class="research-intro-note"><strong>Phiên làm việc chỉ trong tab</strong><span>Không lưu vào Supabase. Mỗi lượt suy luận dùng quota ZeroGPU chung. Đáp án tham chiếu và đánh giá là dữ liệu do người dùng kiểm tra, không phải kết quả benchmark.</span></div>
+    </section>
+    <div id="researchNotice" class="research-notice" role="status" hidden></div>
+    <div class="research-grid">
+      <section class="research-panel research-inputs" aria-labelledby="researchInputTitle">
+        <div class="research-section-head"><div><span class="research-step">01</span><h2 id="researchInputTitle">Bộ ảnh & thư viện</h2></div><span id="imageCount" class="research-count">0 ảnh</span></div>
+        <p class="research-hint">Ảnh giữ đúng thứ tự. Thay bộ ảnh sẽ xóa kết quả cũ sau khi bạn xác nhận.</p>
+        <div id="sampleLibrary" class="research-library" aria-label="Thư viện infographic tổng hợp"></div>
+        <div id="researchDrop" class="research-drop"><input id="researchFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden /><button id="researchAttach" type="button">＋ Chọn ảnh riêng</button><span>Kéo thả PNG, JPG, WebP · tối đa 4 ảnh · 8 MB/ảnh, tổng 24 MB</span></div>
+        <div id="researchImages" class="research-image-list" aria-live="polite"></div>
+        <p id="imageHashStatus" class="research-hint">SHA-256 được tính trong trình duyệt. File ảnh không nằm trong bản xuất.</p>
+      </section>
+      <section class="research-panel research-work" aria-labelledby="researchWorkTitle">
+        <div class="research-section-head"><div><span class="research-step">02</span><h2 id="researchWorkTitle">Lượt thử</h2></div><span id="researchCapability" class="research-count">Đang đọc capabilities</span></div>
+        <p class="research-hint">So sánh model chỉ khi cùng số ảnh được hỗ trợ. SSRC v04 dùng 32 tokens, Extended 4B dùng 64/128, M7 dùng 96.</p>
+        <div class="research-actions"><button id="addVariant" type="button">＋ Biến thể câu hỏi</button><button id="addModel" type="button">＋ Model tương thích</button><button id="addToken" type="button">＋ Giới hạn token</button></div>
+        <div id="researchTrials" class="research-trials" aria-live="polite"></div>
+        <div class="research-verification">
+          <div><strong>Xác minh cho lượt gửi tiếp theo</strong><p id="researchTurnstileStatus" role="status">Mở xác minh khi sẵn sàng chạy một lượt thử.</p></div>
+          <button id="researchVerify" type="button">Mở Turnstile</button>
+          <div id="researchWidget" class="research-widget" hidden></div>
+          <button id="researchRetry" type="button" hidden>Thử xác minh lại</button>
+        </div>
+      </section>
+    </div>
+    <section class="research-panel research-export" aria-labelledby="researchExportTitle">
+      <div class="research-section-head"><div><span class="research-step">03</span><h2 id="researchExportTitle">Xuất minh chứng</h2></div><span>Ảnh chỉ có hash, thứ tự và kích thước</span></div>
+      <p class="research-hint">JSON, CSV và Markdown gồm đáp án, tham chiếu, đánh giá, lỗi và provenance an toàn. Metadata phía trình duyệt có thể chỉnh sửa, không phải bằng chứng bất biến của server.</p>
+      <div class="research-actions"><button id="exportResearchJson" type="button">Tải JSON</button><button id="exportResearchCsv" type="button">Tải CSV</button><button id="exportResearchMarkdown" type="button">Tải Markdown</button></div>
+    </section>
+    <footer class="research-footer">Không gửi dữ liệu cá nhân hoặc nhạy cảm. Mọi lượt inference phải do bạn chủ động bấm Gửi, không chạy song song và không tự thử lại.</footer>
+  </main>
+  <dialog id="researchImageViewer" class="research-image-viewer"><div><strong id="researchImageTitle">Ảnh infographic</strong><button id="researchCloseViewer" type="button" aria-label="Đóng ảnh lớn">✕</button></div><img id="researchImageLarge" alt="Infographic phóng lớn" /></dialog>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <script src="./config.js?v=20261122-4"></script>
+  <script type="module" src="./assets/research.js?v=20261128-1"></script>
+</body>
+</html>

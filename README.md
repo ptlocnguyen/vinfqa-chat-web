@@ -16,9 +16,9 @@ Frontend HTML/CSS/JavaScript thuần cho SSRC v04, Extended 4B và M7 7B multi-i
 - `assets/quota.js`: đọc quota tài khoản demo qua `/quota` mỗi 120 giây.
 - `assets/styles.css`: responsive, dark/light theme và trạng thái quota.
 
-## Trạng thái production — 2026-11-25
+## Mốc production lịch sử — 2026-11-25
 
-Production đang chạy frontend commit `6472c2052a73f58557b35c42a25d9b9d0a1680fc` trên `https://ptlocnguyen.github.io/vinfqa-chat-web/`; GitHub Pages workflow run `45545761595` đã hoàn tất thành công. Gateway Worker production version là `bb8379fc-efe2-49ce-93f9-8bd4dee615ec`, được triển khai từ Gateway commit `7c2d41ca0e50b4877c4f0233fc2d357c944b1a29`. Extended/M7 Hugging Face Space revision là `5f62891ce2ee42a36c18739554e0c56a380cd5ae`. Các giá trị này ghi nhận bản phát hành đã xác minh; không thay bằng HEAD mới hơn khi cần khôi phục.
+Tại thời điểm 2026-11-25, frontend chạy commit `6472c2052a73f58557b35c42a25d9b9d0a1680fc` trên `https://ptlocnguyen.github.io/vinfqa-chat-web/`; GitHub Pages workflow run `45545761595` đã hoàn tất thành công. Gateway Worker production version khi đó là `bb8379fc-efe2-49ce-93f9-8bd4dee615ec`, được triển khai từ Gateway commit `7c2d41ca0e50b4877c4f0233fc2d357c944b1a29`. Extended/M7 Hugging Face Space revision là `5f62891ce2ee42a36c18739554e0c56a380cd5ae`. Các giá trị này là mốc phát hành lịch sử, không mô tả production hiện tại; không thay bằng HEAD mới hơn khi cần khôi phục đúng mốc.
 
 Luồng inference: trình duyệt gửi ảnh, câu hỏi, token Turnstile và JWT tùy chọn tới Cloudflare Worker. Worker xác minh và chuyển request tới private Hugging Face Space. Khi người dùng đăng nhập, Worker lưu câu hỏi, câu trả lời và provenance vào Supabase sau inference thành công. Ảnh chỉ được lưu vào bucket private khi người dùng chủ động bật “Lưu ảnh”; mặc định ảnh không được lưu. Lịch sử chat không được gửi làm prompt; ảnh vẫn đi qua Cloudflare/Hugging Face và có thể được Space lưu tạm. Không tải dữ liệu cá nhân hoặc nhạy cảm.
 
@@ -95,3 +95,15 @@ Tạo checkpoint trong private artifact repository riêng, cố định immutabl
 The production chat interface is being refreshed on feature branch `feat/ux-progressive-disclosure-20261127`. It groups model and token selection, quota details, system status, account/theme actions, attachment actions, help and response exports into compact native disclosure menus while preserving the existing inference, authentication, Turnstile, history, image, provenance and export code paths. The sidebar supports desktop collapse and mobile drawer behavior; image galleries can be collapsed and reopened.
 
 Local browser preview was checked at 1920×1080, 390×844 and 320×700. The 320 px mobile viewport had no document-level horizontal overflow. Local preview cannot verify production CORS, Turnstile Siteverify or backend requests; do not treat those expected localhost restrictions as production failures. The production deployment revision is recorded in the GitHub Pages workflow after release.
+
+## Research Workspace (feature branch, chưa phát hành production)
+
+Trang `research.html` tách khỏi composer Chat và dùng cùng design tokens. Branch `feat/research-workspace-20261128` được tạo từ frontend production `0722fe50fa4399471132ed1a43e849ae7be6b747`; rollback tag ở điểm này là `rollback/frontend-before-research-workspace-20261128`. **Chưa merge/deploy lên GitHub Pages production** cho đến khi xác minh Turnstile thật trên hostname production hoạt động.
+
+- `assets/research-core.mjs`: thư viện tình huống tổng hợp, kiểm tra compatibility theo `/health`, form `/infer` hoặc `/infer-multi`, kiểm tra contract trả về và export JSON/CSV/Markdown. `assets/model-registry.mjs` thêm metadata client cho ba model; Gateway vẫn là nguồn quyết định model nào bật và token limit nào được cấp.
+- `assets/research.js`: chỉ gửi đúng một request khi người dùng bấm **Gửi một lượt** sau một Turnstile token mới. Không tự chạy danh sách, không gửi song song, không retry, không đính JWT hay tham số lưu lịch sử. Kết quả Research chỉ giữ trong tab; export không chứa bytes ảnh, token Turnstile, JWT hoặc Secret.
+- `assets/samples/khu-vuc-{a,b,c,d}.png`: bốn infographic tổng hợp đã có. Tám tình huống thuộc đọc biểu đồ, tính toán, truy xuất và so sánh nhiều ảnh. SHA-256 khóa từng PNG với đáp án tham chiếu; nếu file đổi, trang từ chối nạp như mẫu đã kiểm tra. Khi đổi câu hỏi/thứ tự ảnh, đáp án tham chiếu bị xóa để người dùng kiểm tra lại. Những mẫu này không thuộc DEV/TEST và không dùng làm benchmark.
+- Chat thêm tìm kiếm theo tiêu đề/nội dung, đổi tên và ghim **chỉ trong tab**, cùng xóa phiên trong tab. Hội thoại đã đồng bộ tài khoản chỉ được ẩn khỏi tab; bản ghi cloud không bị xóa và sẽ hiện lại khi tải trang. Chưa có API cập nhật tên/ghim trên Supabase. Endpoint xóa cloud hiện có chưa được nối vào UI này vì Gateway xóa ảnh trước khi xóa bản ghi hội thoại, có nguy cơ trạng thái không nhất quán nếu bước sau thất bại.
+- Kiểm thử local: `npm test`, `npm run test:browser`. Browser test intercept toàn bộ Gateway/Turnstile để không gọi GPU. Screenshot tại `visual-qa/2026-11-28-research-workspace/` đều là local mock.
+
+Research Workspace giúp kiểm thử chức năng có kiểm soát; đánh giá đúng/sai là thủ công. Metadata export phía trình duyệt có thể chỉnh sửa và không thay thế provenance server hay đánh giá khoa học trên tập nghiên cứu.

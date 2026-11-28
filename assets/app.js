@@ -18,7 +18,7 @@ const TURNSTILE_LOAD_TIMEOUT_MS = 15_000;
 const HEALTH_RETRY_DELAYS_MS = [3_000,10_000,30_000];
 const MAX_SESSIONS = 10;
 const state = {
-  sessions: [], active: null, busy: false, turnstileToken: '', widgetId: null, verificationRequested: false, verificationPinned:false,
+  sessions: [], active: null, busy: false, chatSearch:'', turnstileToken: '', widgetId: null, verificationRequested: false, verificationPinned:false,
   configured: /^https:\/\//.test(cfg.API_BASE_URL || '') && Boolean(cfg.TURNSTILE_SITE_KEY), serviceReady: false,
   healthAttempt: 0, healthTimer: null, turnstileStartedAt: 0, turnstileTimer: null,
   turnstileEpoch:0,turnstileTheme:'',turnstileNeedsReset:false,turnstileErrorCode:'',
@@ -28,7 +28,7 @@ const state = {
   models:uiModelCapabilities(null), imageOperation:0, imageQueue:Promise.resolve(), recallIndex:-1, recallDraft:'', renderedSessionId:null,
 };
 const refs = {
-  sidebar: $('#sidebar'), chatList: $('#chatList'), empty: $('#emptyState'),
+  sidebar: $('#sidebar'), chatList: $('#chatList'), chatSearch:$('#chatSearch'), empty: $('#emptyState'),
   messages: $('#messages'), question: $('#questionInput'), imageInput: $('#imageInput'),
   imageChip: $('#imageChip'), error: $('#errorNotice'), send: $('#sendButton'),
   turnstile: $('#turnstileBox'), turnstileStatus:$('#turnstileStatus'), proof: $('#proofRow'), status: $('#serviceStatus'), refreshCaptcha: $('#refreshCaptcha'),
@@ -312,6 +312,7 @@ async function loadRemoteHistory() {
 }
 function addSession() {
   state.imageOperation++;
+  state.chatSearch='';if(refs.chatSearch)refs.chatSearch.value='';
   const session = { id: crypto.randomUUID(), title: 'Cuộc trò chuyện mới', messages: [], images: [], modelId:UI_MODEL_IDS.V04, maxNewTokens:32, draft:'', imageStored:false, imageSavePreference:false };
   state.sessions.unshift(session);
   while (state.sessions.length > MAX_SESSIONS) {
@@ -326,14 +327,42 @@ function addSession() {
 function renderSidebar() {
   hideChatTooltip();
   refs.chatList.replaceChildren();
-  for (const session of state.sessions) {
+  const query=state.chatSearch.trim().toLocaleLowerCase('vi-VN');
+  const visible=[...state.sessions].sort((a,b)=>Number(Boolean(b.pinned))-Number(Boolean(a.pinned)))
+    .filter(session=>!query||session.title.toLocaleLowerCase('vi-VN').includes(query)||session.messages.some(message=>String(message.text??'').toLocaleLowerCase('vi-VN').includes(query)));
+  for (const session of visible) {
+    const row=htmlElement('div','chat-row');
     const item = htmlElement('button', 'chat-item' + (state.active === session.id ? ' active' : ''));
     item.type = 'button'; item.setAttribute('aria-current', state.active === session.id ? 'page' : 'false');
     const chatIcon=htmlElement('span','chat-icon');chatIcon.append(icon('file-text'));
-    item.append(chatIcon, htmlElement('span', 'chat-title', session.title));
+    item.append(chatIcon, htmlElement('span', 'chat-title', `${session.pinned?'◆ ':''}${session.title}`));
     item.onclick = () => { if (!state.busy) { state.imageOperation++;state.active = session.id; resetRecall(); closeSidebar(); render(); setBackendLifecycleStatus('NOT_VERIFIED'); void checkBackendStatus(); } };
-    refs.chatList.append(item);
+    const actions=htmlElement('span','chat-row-actions');
+    for(const [label,glyph,handler] of [
+      [session.pinned?'Bỏ ghim phiên (chỉ trong tab)':'Ghim phiên (chỉ trong tab)','◇',()=>{session.pinned=!session.pinned;renderSidebar();}],
+      ['Đổi tên phiên (chỉ trong tab)','✎',()=>renameSession(session)],
+      [session.remote?'Ẩn phiên khỏi tab (không xóa tài khoản)':'Xóa phiên khỏi tab','×',()=>deleteSession(session)],
+    ]){
+      const button=htmlElement('button','chat-row-action',glyph);button.type='button';button.title=label;button.setAttribute('aria-label',`${label}: ${session.title}`);button.disabled=state.busy;button.onclick=handler;actions.append(button);
+    }
+    row.append(item,actions);refs.chatList.append(row);
   }
+  if(!visible.length)refs.chatList.append(htmlElement('p','chat-search-empty','Không tìm thấy phiên phù hợp.'));
+}
+function renameSession(session){
+  if(state.busy)return;
+  const value=prompt('Đổi tên trong tab này (lịch sử tài khoản chưa hỗ trợ cập nhật tên trực tiếp):',session.title);
+  if(value===null)return;
+  const title=value.trim();if(!title||title.length>100){showError('Tên phiên phải dài 1–100 ký tự.');return;}
+  session.title=title;renderSidebar();
+}
+function deleteSession(session){
+  if(state.busy)return;
+  if(!confirm(session.remote?'Ẩn phiên này khỏi tab? Hội thoại trên tài khoản vẫn còn và sẽ xuất hiện lại khi tải trang.':'Xóa cuộc trò chuyện này khỏi tab?'))return;
+  if(!state.sessions.includes(session))return;
+  releaseSessionImages([session]);state.sessions=state.sessions.filter(item=>item!==session);
+  if(state.active===session.id)state.active=state.sessions[0]?.id||null;
+  if(!state.sessions.length)addSession();else render();
 }
 function render() {
   renderSidebar();
@@ -712,6 +741,7 @@ async function send() {
       showError('Đã nhận câu trả lời nhưng chưa đồng bộ được lượt chat vào tài khoản.');
     else if (saveImageRequested && payload.image_saved === false)
       showError('Đã đồng bộ câu hỏi và câu trả lời, nhưng ảnh chưa được lưu vào lịch sử.');
+    if(state.authSession&&payload.history_saved===true)session.remote=true;
   } catch (error) {
     if(restoreQuestion){refs.question.value=question;session.draft=question;resizeInput();}
     const message = error?.name === 'TimeoutError'
@@ -975,6 +1005,7 @@ refs.chatList.addEventListener('pointerout',event=>{const item=event.target.clos
 refs.chatList.addEventListener('focusin',event=>{const item=event.target.closest('.chat-item');if(item)showChatTooltip(item);});
 refs.chatList.addEventListener('focusout',event=>{if(event.target.closest('.chat-item'))hideChatTooltip();});
 refs.chatList.addEventListener('scroll',hideChatTooltip,{passive:true});
+refs.chatSearch?.addEventListener('input',()=>{state.chatSearch=refs.chatSearch.value;renderSidebar();});
 refs.sidebar.addEventListener('scroll',hideChatTooltip,{passive:true});
 addEventListener('resize',hideChatTooltip);
 refs.modelSelector.addEventListener('change',()=>{const next=refs.modelSelector.value;switchBackend(next);});

@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "test:browser": "node test/browser-ux.mjs"
+    "test:browser": "node test/browser-ux.mjs && node test/browser-research.mjs"
   },
   "devDependencies": {
     "playwright": "1.65.1"
