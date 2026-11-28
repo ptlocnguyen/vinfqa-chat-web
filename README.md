@@ -96,9 +96,9 @@ The production chat interface is being refreshed on feature branch `feat/ux-prog
 
 Local browser preview was checked at 1920×1080, 390×844 and 320×700. The 320 px mobile viewport had no document-level horizontal overflow. Local preview cannot verify production CORS, Turnstile Siteverify or backend requests; do not treat those expected localhost restrictions as production failures. The production deployment revision is recorded in the GitHub Pages workflow after release.
 
-## Research Workspace (feature branch, chưa phát hành production)
+## Research Workspace (GitHub Pages production, 2026-11-28)
 
-Trang `research.html` tách khỏi composer Chat và dùng cùng design tokens. Branch `feat/research-workspace-20261128` được tạo từ frontend production `0722fe50fa4399471132ed1a43e849ae7be6b747`; rollback tag ở điểm này là `rollback/frontend-before-research-workspace-20261128`. **Chưa merge/deploy lên GitHub Pages production** cho đến khi xác minh Turnstile thật trên hostname production hoạt động.
+Trang `research.html` tách khỏi composer Chat và dùng cùng design tokens. Branch `feat/research-workspace-20261128` được fast-forward vào `main` từ mốc frontend `0722fe50fa4399471132ed1a43e849ae7be6b747`; rollback tag ở điểm này là `rollback/frontend-before-research-workspace-20261128`. Người dùng đã xác nhận Turnstile thật trên Chat production trước khi phát hành Research. Turnstile thật trên trang Research cần kiểm tra riêng, không cần gửi inference.
 
 So sánh Extended 4B 64/128 là thay đổi token limit trong cùng backend. So sánh SSRC v04 32 với Extended 4B 64/128 thay đổi backend nên không quy khác biệt kết quả chỉ cho token limit. Loại so sánh và lượt mốc được ghi trong JSON, CSV và Markdown. Khi sửa đáp án tham chiếu sau inference, đánh giá thủ công trở về `NOT_ASSESSED`; answer và provenance đã nhận vẫn được giữ. Chat và Research dùng chung cấu hình widget, callback recovery và diễn giải mã lỗi Turnstile trong `assets/turnstile-contract.mjs`; phần hiển thị riêng vẫn nằm tại từng trang. Nút `Ẩn` của hội thoại cloud chỉ ẩn khỏi tab, không xóa bản ghi tài khoản.
 
