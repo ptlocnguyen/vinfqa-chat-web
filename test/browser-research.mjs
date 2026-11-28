@@ -15,7 +15,7 @@ const server=createServer(async(req,res)=>{
 });
 await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
 const origin=`http://127.0.0.1:${server.address().port}`;
-const screenshots=process.env.VISUAL_QA_DIR||resolve(root,'visual-qa/2026-11-28-research-workspace');
+const screenshots=process.env.VISUAL_QA_DIR||null;
 if(screenshots)await mkdir(screenshots,{recursive:true});
 let browser;
 try{
@@ -28,7 +28,7 @@ try{
     const path=new URL(route.request().url()).pathname;
     if(path==='/health'){
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'ready',capabilities:{max_new_tokens:[32,64,128],models:[
-        {model_id:'s3-v04-4b',enabled:true,max_new_tokens:[32]},{model_id:'s3-extended-4b',enabled:true,max_new_tokens:[64,128]},{model_id:'m7-7b-nb136',enabled:true,max_new_tokens:[96]},
+        {model_id:'s3-v04-4b',enabled:true,image_min:1,image_max:1,max_new_tokens:[32]},{model_id:'s3-extended-4b',enabled:true,image_min:1,image_max:1,max_new_tokens:[64,128]},{model_id:'m7-7b-nb136',enabled:true,image_min:2,image_max:4,max_new_tokens:[96]},
       ]}})});return;
     }
     if(path==='/backend-status'){await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({model_id:'s3-v04-4b',backend:{status:'Ready',checked_at:new Date().toISOString()}})});return;}
@@ -47,7 +47,7 @@ try{
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'INFERENCE_COMPLETED',answer:imageCount===4?'85':'24',request_id:`mock-${requests.length}`,provenance})});
   });
   const page=await context.newPage();const errors=[];let nextDialogAnswer='';page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>{void dialog.accept(nextDialogAnswer);nextDialogAnswer='';});
-  const capture=async name=>{await page.evaluate(()=>scrollTo(0,0));await page.waitForTimeout(100);await page.screenshot({path:`${screenshots}/${name}`,fullPage:true});};
+  const capture=async name=>{if(!screenshots)return;await page.evaluate(()=>scrollTo(0,0));await page.waitForTimeout(100);await page.screenshot({path:`${screenshots}/${name}`,fullPage:true});};
   await page.goto(`${origin}/research.html`,{waitUntil:'domcontentloaded'});
   await page.getByText('Gateway sẵn sàng').waitFor();
   assert.equal(await page.locator('.research-trial').count(),0);

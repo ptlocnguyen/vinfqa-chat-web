@@ -11,7 +11,11 @@ export function researchCapabilities(healthPayload,imageCount) {
   if(healthPayload?.status!=='ready'||!Array.isArray(healthPayload?.capabilities?.models))return [];
   const advertised=new Map(healthPayload.capabilities.models.map(model=>[model?.model_id,model]));
   return uiModelCapabilities(healthPayload)
-    .filter(model=>advertised.get(model.model_id)?.enabled===true&&model.enabled&&Number.isInteger(imageCount)&&validateImageCount(model,imageCount))
+    .filter(model=>{
+      const server=advertised.get(model.model_id);
+      return server?.enabled===true&&model.enabled&&Number.isInteger(imageCount)&&validateImageCount(model,imageCount)&&
+        Number.isInteger(server.image_min)&&Number.isInteger(server.image_max)&&imageCount>=server.image_min&&imageCount<=server.image_max;
+    })
     .map(model=>({ ...model, ...MODEL_REGISTRY[model.model_id],
       max_new_tokens:model.max_new_tokens.filter(value=>MODEL_REGISTRY[model.model_id].tokenLimits.includes(value)&&advertised.get(model.model_id).max_new_tokens?.includes(value)) }))
     .filter(model=>model.max_new_tokens.length>0);

@@ -12,4 +12,4 @@ Các PNG trong thư mục này là ảnh chụp **local browser với Gateway v�
 - `research-uploaded-two-images-local-mock.png`: hai file người dùng nạp và đổi thứ tự trên mobile 320 px.
 - `chat-session-management-desktop-local-mock.png`, `chat-sidebar-collapsed-research-link-local-mock.png`: tìm kiếm, ghim/đổi tên/xóa và điều hướng Research trong Chat.
 
-Chạy lại: `node test/browser-research.mjs`.
+Chạy lại browser test: `node test/browser-research.mjs`. Để tạo lại screenshot trong PowerShell: đặt `$env:VISUAL_QA_DIR` thành đường dẫn thư mục này, rồi chạy test; xóa biến môi trường sau khi xong. Test thông thường không ghi đè ảnh đã lưu.

@@ -7,9 +7,9 @@ import {UI_MODEL_IDS} from '../assets/model-registry.mjs';
 import {SAMPLE_IMAGES,SAMPLE_SCENARIOS,compatibleModels,validateResearchTrial,makeResearchForm,checkedResult,researchExport,researchCsv,researchMarkdown} from '../assets/research-core.mjs';
 
 const health={status:'ready',capabilities:{max_new_tokens:[32,64,128],models:[
-  {model_id:UI_MODEL_IDS.V04,enabled:true,max_new_tokens:[32]},
-  {model_id:UI_MODEL_IDS.EXTENDED,enabled:true,max_new_tokens:[64,128]},
-  {model_id:UI_MODEL_IDS.M7,enabled:true,max_new_tokens:[96]},
+  {model_id:UI_MODEL_IDS.V04,enabled:true,image_min:1,image_max:1,max_new_tokens:[32]},
+  {model_id:UI_MODEL_IDS.EXTENDED,enabled:true,image_min:1,image_max:1,max_new_tokens:[64,128]},
+  {model_id:UI_MODEL_IDS.M7,enabled:true,image_min:2,image_max:4,max_new_tokens:[96]},
 ]}};
 const file=new File([new Uint8Array([137,80,78,71])],'fixture.png',{type:'image/png'});
 const image={file,sha256:'a'.repeat(64),source:'uploaded'};
@@ -33,6 +33,8 @@ test('research capabilities fail closed and enforce image count plus advertised 
   assert.deepEqual(compatibleModels(health,4).map(m=>m.model_id),[UI_MODEL_IDS.M7]);
   const changed=structuredClone(health);changed.capabilities.models[1].max_new_tokens=[64];
   assert.deepEqual(compatibleModels(changed,1)[1].max_new_tokens,[64]);
+  changed.capabilities.models[2].image_max=2;
+  assert.deepEqual(compatibleModels(changed,4),[]);
 });
 
 test('each trial builds only its selected Gateway route and does not include auth or history fields',()=>{
