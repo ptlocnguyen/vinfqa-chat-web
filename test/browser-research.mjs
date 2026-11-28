@@ -58,8 +58,12 @@ try{
   assert.equal(await page.locator('.research-image').count(),1);
   assert.equal(await page.locator('.research-trial').count(),1);
   assert.equal(await page.locator('.research-trial select[aria-label="Model cho lượt thử"] option').count(),2);
+  await page.locator('#addToken').click();
+  assert.equal(await page.locator('.research-trial').count(),1,'v04 32 cannot be framed as a token-only comparison');
   await page.locator('#addModel').click();await page.locator('#addToken').click();
   assert.equal(await page.locator('.research-trial').count(),3);
+  assert.match(await page.locator('.research-trial').nth(1).locator('.research-comparison').innerText(),/Khác backend/);
+  assert.match(await page.locator('.research-trial').nth(2).locator('.research-comparison').innerText(),/Cùng backend/);
   assert.deepEqual(await page.locator('.research-trial select[aria-label="Giới hạn token"]').evaluateAll(nodes=>nodes.map(node=>Number(node.value))),[32,64,128]);
   await capture('research-compare-desktop-local-mock.png');
   await page.locator('.research-trial').first().locator('.trial-run').click();
@@ -78,6 +82,12 @@ try{
   assert.equal(requests.length,1);
   assert.equal(await page.locator('.research-trial').first().locator('.trial-run').isDisabled(),true);
   await page.locator('.research-trial').first().locator('.trial-assessment select').selectOption('CORRECT');
+  const originalAnswer=await page.locator('.research-trial').first().locator('.research-result .answer').innerText();
+  const originalProvenance=await page.locator('.research-trial').first().locator('pre').innerText();
+  await page.locator('.research-trial').first().locator('input[placeholder="Chưa có tham chiếu"]').fill('25');
+  assert.equal(await page.locator('.research-trial').first().locator('.trial-assessment select').inputValue(),'NOT_ASSESSED');
+  assert.equal(await page.locator('.research-trial').first().locator('.research-result .answer').innerText(),originalAnswer);
+  assert.equal(await page.locator('.research-trial').first().locator('pre').innerText(),originalProvenance);
   await page.locator('.research-trial').first().locator('.trial-assessment input').fill('Đúng theo mẫu tổng hợp.');
   await page.locator('#researchVerify').click();await page.waitForFunction(()=>window.__widgetReset===2);
   await page.evaluate(()=>window.__widget.callback('LOCAL_MOCK_2'));
@@ -91,7 +101,7 @@ try{
   await capture('research-results-desktop-local-mock.png');
   const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportResearchJson').click()]);
   const data=JSON.parse(await readFile(await download.path(),'utf8'));
-  assert.equal(data.trials.length,3);assert.equal(data.trials[0].assessment,'CORRECT');assert.equal(data.images.length,1);assert.match(data.images[0].sha256,/^[a-f0-9]{64}$/);
+  assert.equal(data.trials.length,3);assert.equal(data.trials[0].assessment,'NOT_ASSESSED');assert.equal(data.trials[0].reference_answer,'25');assert.equal(data.trials[0].answer,'24');assert.equal(data.trials[1].comparison_type,'DIFFERENT_BACKEND');assert.equal(data.trials[2].comparison_type,'SAME_BACKEND_TOKEN');assert.equal(data.images.length,1);assert.match(data.images[0].sha256,/^[a-f0-9]{64}$/);
   assert.equal(JSON.stringify(data).includes('LOCAL_MOCK_'),false);
   await page.locator('[data-scenario="compare-abcd"]').click();
   await page.waitForFunction(()=>document.querySelectorAll('.research-image').length===4);
@@ -157,7 +167,8 @@ try{
   const signedPage=await context.newPage();signedPage.on('dialog',dialog=>void dialog.accept());
   await signedPage.goto(origin,{waitUntil:'domcontentloaded'});
   await signedPage.getByRole('button',{name:/Phiên tài khoản/}).first().waitFor();
-  await signedPage.locator('.chat-row').first().getByRole('button',{name:/Ẩn phiên khỏi tab/}).click();
+  assert.equal(await signedPage.locator('.chat-row').first().locator('.remote-hide').innerText(),'Ẩn');
+  await signedPage.locator('.chat-row').first().getByRole('button',{name:/Ẩn khỏi tab/}).click();
   await signedPage.waitForFunction(()=>!document.querySelector('#chatList')?.textContent.includes('Phiên tài khoản'));
   assert.equal(remoteDeleteAttempts,0,'Cloud history is never deleted from this frontend action');
   await signedPage.close();

@@ -9,7 +9,7 @@
   <meta name="description" content="VietInfographicQA: nền tảng hỏi đáp infographic tiếng Việt với các mô hình 4B và multi-image 7B." />
   <title>VietInfographicQA · Multi-model Chat</title>
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="./assets/styles.css?v=20261128-4" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20261128-5" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -103,7 +103,7 @@
   <dialog id="aboutDialog" class="about-dialog"><div class="dialog-top"><strong>Về VietInfographicQA</strong><button id="closeAbout" class="icon-btn" aria-label="Đóng">✕</button></div><p>Demo nghiên cứu có ba chế độ: SSRC v04 dùng Qwen3-VL-4B và router S3-QLoRA cho một ảnh; Extended dùng cùng họ model với giới hạn đầu ra 64/128 tokens; M7 dùng Qwen2.5-VL-7B-Instruct cùng adapter QLoRA để nhận 2–4 ảnh có thứ tự.</p><p>Provenance xác nhận thông tin của lượt suy luận theo backend, không chứng minh câu trả lời đúng. Quota ZeroGPU và thời gian chờ phụ thuộc Hugging Face. M7 hiện chỉ giữ hội thoại trong tab, chưa đồng bộ lịch sử lên tài khoản. Nút “Ảnh mẫu” nạp dữ liệu tổng hợp để xem trước và không tự gửi yêu cầu.</p><p class="dialog-alert">Không tải lên ảnh chứa dữ liệu cá nhân hoặc thông tin nhạy cảm. Ảnh gửi để suy luận được chuyển qua Cloudflare Worker tới Hugging Face Space.</p><button id="understood" class="dialog-ok">Đã hiểu</button></dialog>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js?v=20261122-4"></script>
-  <script type="module" src="./assets/app.js?v=20261128-4"></script>
+  <script type="module" src="./assets/app.js?v=20261128-5"></script>
   <script type="module" src="./assets/quota.js?v=20261127-4"></script>
 </body>
 </html>

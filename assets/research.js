@@ -1,6 +1,7 @@
 import {MODEL_REGISTRY,UI_MODEL_IDS} from './model-registry.mjs';
 import {imageSha256} from './image-items.mjs';
-import {SAMPLE_IMAGES,SAMPLE_SCENARIOS,compatibleModels,validateResearchTrial,makeResearchForm,checkedResult,researchExport,researchCsv,researchMarkdown} from './research-core.mjs';
+import {SAMPLE_IMAGES,SAMPLE_SCENARIOS,compatibleModels,validateResearchTrial,makeResearchForm,checkedResult,comparisonType,comparisonLabel,researchExport,researchCsv,researchMarkdown} from './research-core.mjs';
+import {TURNSTILE_LOAD_TIMEOUT_MS,turnstileErrorText,turnstileWidgetOptions} from './turnstile-contract.mjs';
 
 const cfg=window.VINFQA_PUBLIC_CONFIG||{};
 const $=selector=>document.querySelector(selector);
@@ -48,7 +49,7 @@ async function makeImage(file,source,expectedHash=null){
   return {id:crypto.randomUUID(),file,source,sha256,url:URL.createObjectURL(file)};
 }
 function defaultTrial(question='',reference='',model=models()[0],referenceSource='USER_REVIEW_REQUIRED'){
-  return {id:crypto.randomUUID(),modelId:model?.model_id||'',maxNewTokens:model?.max_new_tokens[0]||32,question,reference,referenceSource,answer:'',status:'NOT_RUN',assessment:'NOT_ASSESSED',notes:'',provenance:null,errorCode:null,httpStatus:null,requestId:null,wallSeconds:null,startedAt:null,completedAt:null};
+  return {id:crypto.randomUUID(),comparisonWith:null,modelId:model?.model_id||'',maxNewTokens:model?.max_new_tokens[0]||32,question,reference,referenceSource,answer:'',status:'NOT_RUN',assessment:'NOT_ASSESSED',notes:'',provenance:null,errorCode:null,httpStatus:null,requestId:null,wallSeconds:null,startedAt:null,completedAt:null};
 }
 function resetResults(){for(const trial of state.trials){Object.assign(trial,{answer:'',status:'NOT_RUN',assessment:'NOT_ASSESSED',notes:'',provenance:null,errorCode:null,httpStatus:null,requestId:null,wallSeconds:null,startedAt:null,completedAt:null});}}
 async function useScenario(scenario){
@@ -115,6 +116,7 @@ function renderTrials(){
   for(const trial of state.trials){
     const card=document.createElement('article');card.className='research-trial';card.dataset.trial=trial.id;
     const header=document.createElement('div');header.className='research-trial-head';const name=document.createElement('strong');name.textContent=`Lượt ${state.trials.indexOf(trial)+1}`;const status=document.createElement('span');status.textContent=trial.status==='PASS'?'Hoàn thành':trial.status==='ERROR'?'Có lỗi':trial.status==='RUNNING'?'Đang chạy':'Chưa gửi';header.append(name,status);
+    const comparison=document.createElement('div');comparison.className='research-comparison';comparison.textContent=comparisonLabel(comparisonType(trial,state.trials.find(item=>item.id===trial.comparisonWith)));
     const selectors=document.createElement('div');selectors.className='trial-selectors';
     const modelLabel=document.createElement('label');modelLabel.textContent='Model';const modelSelect=document.createElement('select');modelSelect.setAttribute('aria-label','Model cho lượt thử');
     for(const item of choices){const option=document.createElement('option');option.value=item.model_id;option.textContent=`${MODEL_REGISTRY[item.model_id].shortName} · ${MODEL_REGISTRY[item.model_id].backbone}`;modelSelect.append(option);}modelSelect.value=trial.modelId;modelSelect.disabled=state.busy||choices.length===0||trial.status!=='NOT_RUN';modelLabel.append(modelSelect);
@@ -123,10 +125,10 @@ function renderTrials(){
     modelSelect.onchange=()=>{trial.modelId=modelSelect.value;trial.maxNewTokens=choices.find(item=>item.model_id===trial.modelId)?.max_new_tokens[0]||32;resetTrial(trial);renderTrials();};
     tokenSelect.onchange=()=>{trial.maxNewTokens=Number(tokenSelect.value);resetTrial(trial);renderTrials();};
     const questionLabel=document.createElement('label');questionLabel.textContent='Câu hỏi';const question=document.createElement('textarea');question.maxLength=1000;question.value=trial.question;question.placeholder='Câu hỏi bằng tiếng Việt…';question.disabled=state.busy||trial.status!=='NOT_RUN';question.addEventListener('input',()=>{if(trial.question!==question.value){trial.question=question.value;trial.reference='';trial.referenceSource='USER_REVIEW_REQUIRED';reference.value='';resetTrial(trial);statusLine.textContent='Câu hỏi đã đổi. Cần kiểm tra lại đáp án tham chiếu.';}});questionLabel.append(question);
-    const referenceLabel=document.createElement('label');referenceLabel.textContent='Đáp án tham chiếu · do bạn xác minh';const reference=document.createElement('input');reference.maxLength=300;reference.value=trial.reference;reference.placeholder='Chưa có tham chiếu';reference.disabled=state.busy;reference.oninput=()=>{trial.reference=reference.value;trial.referenceSource='USER_ENTERED';};referenceLabel.append(reference);
-    const toolbar=document.createElement('div');toolbar.className='trial-toolbar';const run=document.createElement('button');run.className='trial-run';run.type='button';run.textContent=trial.status==='NOT_RUN'?'Gửi một lượt':'Đã gửi · tạo lượt mới';run.disabled=state.busy||state.loadingImages||!choices.length||trial.status!=='NOT_RUN';run.onclick=()=>void runTrial(trial.id);const remove=document.createElement('button');remove.className='trial-remove';remove.type='button';remove.textContent='Xóa lượt';remove.disabled=state.busy;remove.onclick=()=>{if(trial.status!=='NOT_RUN'&&!confirm('Xóa lượt thử và kết quả trong tab?'))return;state.trials=state.trials.filter(item=>item!==trial);renderTrials();};toolbar.append(run,remove);
+    const referenceLabel=document.createElement('label');referenceLabel.textContent='Đáp án tham chiếu · do bạn xác minh';const reference=document.createElement('input');reference.maxLength=300;reference.value=trial.reference;reference.placeholder='Chưa có tham chiếu';reference.disabled=state.busy;reference.oninput=()=>{if(trial.reference!==reference.value){trial.reference=reference.value;trial.referenceSource='USER_ENTERED';trial.assessment='NOT_ASSESSED';const assessmentSelect=card.querySelector('.trial-assessment select');if(assessmentSelect)assessmentSelect.value='NOT_ASSESSED';}};referenceLabel.append(reference);
+    const toolbar=document.createElement('div');toolbar.className='trial-toolbar';const run=document.createElement('button');run.className='trial-run';run.type='button';run.textContent=trial.status==='NOT_RUN'?'Gửi một lượt':'Đã gửi · tạo lượt mới';run.disabled=state.busy||state.loadingImages||!choices.length||trial.status!=='NOT_RUN';run.onclick=()=>void runTrial(trial.id);const remove=document.createElement('button');remove.className='trial-remove';remove.type='button';remove.textContent='Xóa lượt';remove.disabled=state.busy;remove.onclick=()=>{if(trial.status!=='NOT_RUN'&&!confirm('Xóa lượt thử và kết quả trong tab?'))return;for(const item of state.trials)if(item.comparisonWith===trial.id)item.comparisonWith=trial.comparisonWith;state.trials=state.trials.filter(item=>item!==trial);renderTrials();};toolbar.append(run,remove);
     const statusLine=document.createElement('p');statusLine.className='trial-status';statusLine.dataset.state=trial.status;statusLine.textContent=trial.status==='PASS'?'Gateway đã trả kết quả và provenance hợp lệ.':trial.status==='ERROR'?`Lỗi ${trial.errorCode||'không rõ'} · HTTP ${trial.httpStatus??'—'} · request ${trial.requestId||'—'}`:trial.status==='RUNNING'?'Đang chờ Gateway; không gửi thêm lượt khác.':'Mỗi lần bấm chỉ gửi đúng một request.';
-    card.append(header,selectors,questionLabel,referenceLabel,toolbar,statusLine);
+    card.append(header,comparison,selectors,questionLabel,referenceLabel,toolbar,statusLine);
     if(trial.status==='PASS'||trial.status==='ERROR')card.append(resultNode(trial));
     refs.trials.append(card);
   }
@@ -152,11 +154,10 @@ function addTrial(kind){
     if(!other){note('Bộ ảnh này chỉ có một model tương thích. Dùng biến thể câu hỏi để so sánh.');return;}
     selected=other;token=other.max_new_tokens[0];
   }else if(kind==='token'){
-    let next=selected.max_new_tokens.find(value=>value!==base.maxNewTokens);
-    if(next==null){selected=available.find(item=>item.max_new_tokens.length>1)||selected;next=selected.max_new_tokens.find(value=>value!==base.maxNewTokens);}
-    if(next==null){note('Không có mức token khác cho bộ ảnh/model này.');return;}token=next;
+    const next=selected.max_new_tokens.find(value=>value!==base.maxNewTokens);
+    if(next==null){note(base.modelId===UI_MODEL_IDS.V04?'SSRC v04 chỉ hỗ trợ 32. Hãy thêm Extended 4B bằng “Model tương thích”, rồi so sánh 64/128 trong cùng backend.':'Model này không có mức token khác trong cùng backend.');return;}token=next;
   }
-  const trial=defaultTrial(base.question,base.reference,selected,base.referenceSource);trial.maxNewTokens=token;state.trials.push(trial);note('');renderTrials();trialCardFocus(trial.id);
+  const trial=defaultTrial(base.question,base.reference,selected,base.referenceSource);trial.maxNewTokens=token;trial.comparisonWith=state.trials.length?base.id:null;state.trials.push(trial);note('');renderTrials();trialCardFocus(trial.id);
 }
 function trialCardFocus(id){refs.trials.querySelector(`[data-trial="${escapeAttribute(id)}"] textarea`)?.focus();}
 
@@ -171,16 +172,16 @@ function renderWidget(started){
   if(state.widgetId!==null){
     if(state.widgetNeedsReset){try{window.turnstile.reset(state.widgetId);state.widgetNeedsReset=false;verificationMessage('Hoàn tất xác minh trong khung bên dưới.');}catch{removeWidget();verificationMessage('Không thể đặt lại widget. Bấm thử xác minh lại.');refs.retry.hidden=false;}}return;
   }
-  if(!window.turnstile){if(Date.now()-started>15_000){verificationMessage('Không tải được Turnstile. Kiểm tra kết nối rồi thử lại.');refs.retry.hidden=false;return;}state.turnstileTimer=setTimeout(()=>renderWidget(started),300);return;}
+  if(!window.turnstile){if(Date.now()-started>TURNSTILE_LOAD_TIMEOUT_MS){verificationMessage('Không tải được Turnstile. Kiểm tra kết nối rồi thử lại.');refs.retry.hidden=false;return;}state.turnstileTimer=setTimeout(()=>renderWidget(started),300);return;}
   const epoch=++state.widgetEpoch;
   try{
-    state.widgetId=window.turnstile.render(refs.widget,{
-      sitekey:cfg.TURNSTILE_SITE_KEY,theme:document.documentElement.classList.contains('theme-light')?'light':'dark',size:'compact',action:'vinfqa_infer',retry:'never',
-      callback:token=>{if(epoch!==state.widgetEpoch||typeof token!=='string'||!token)return;state.turnstileToken=token;state.widgetNeedsReset=false;verificationMessage('Đã xác minh cho một lượt gửi.');refs.widget.hidden=true;refs.verify.hidden=false;refs.verify.textContent='Đã xác minh';refs.retry.hidden=true;},
-      'expired-callback':()=>{if(epoch!==state.widgetEpoch)return;state.turnstileToken='';state.widgetNeedsReset=true;refs.widget.hidden=false;refs.verify.hidden=true;refs.retry.hidden=false;verificationMessage('Xác minh hết hạn. Cần token mới.');},
-      'timeout-callback':()=>{if(epoch!==state.widgetEpoch)return;state.turnstileToken='';state.widgetNeedsReset=true;refs.retry.hidden=false;verificationMessage('Xác minh quá thời gian. Bấm thử lại.');},
-      'error-callback':code=>{if(epoch!==state.widgetEpoch)return true;state.turnstileToken='';state.widgetNeedsReset=true;refs.retry.hidden=false;verificationMessage(`Turnstile chưa hoàn thành${/^\d{6}$/.test(String(code))?` · mã ${code}`:''}. Bấm thử lại.`);return true;},
-    });state.widgetTheme=document.documentElement.classList.contains('theme-light')?'light':'dark';verificationMessage('Hoàn tất xác minh trong khung bên dưới.');
+    state.widgetId=window.turnstile.render(refs.widget,turnstileWidgetOptions({
+      sitekey:cfg.TURNSTILE_SITE_KEY,theme:document.documentElement.classList.contains('theme-light')?'light':'dark',isCurrent:()=>epoch===state.widgetEpoch,
+      onVerified:token=>{state.turnstileToken=token;state.widgetNeedsReset=false;verificationMessage('Đã xác minh cho một lượt gửi.');refs.widget.hidden=true;refs.verify.hidden=false;refs.verify.textContent='Đã xác minh';refs.retry.hidden=true;},
+      onExpired:()=>{state.turnstileToken='';state.widgetNeedsReset=true;refs.widget.hidden=false;refs.verify.hidden=true;refs.retry.hidden=false;verificationMessage('Xác minh hết hạn. Cần token mới.');},
+      onTimeout:()=>{state.turnstileToken='';state.widgetNeedsReset=true;refs.retry.hidden=false;verificationMessage('Xác minh quá thời gian. Bấm thử lại.');},
+      onError:code=>{state.turnstileToken='';state.widgetNeedsReset=true;refs.retry.hidden=false;verificationMessage(`${turnstileErrorText(code)} Bấm thử lại.`);},
+    }));state.widgetTheme=document.documentElement.classList.contains('theme-light')?'light':'dark';verificationMessage('Hoàn tất xác minh trong khung bên dưới.');
   }catch{verificationMessage('Không tạo được widget Turnstile. Bấm thử lại.');refs.retry.hidden=false;}
 }
 function retryVerification(){state.turnstileToken='';refs.widget.hidden=false;refs.verify.hidden=true;refs.retry.hidden=true;verificationMessage('Đang tải lại xác minh…');state.widgetNeedsReset=true;renderWidget(Date.now());}

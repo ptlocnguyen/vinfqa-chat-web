@@ -60,16 +60,31 @@ export function checkedResult(payload,trial,imageCount){
   return {answer:payload.answer,provenance:safeProvenance({...provenance,request_id:payload.request_id||provenance.request_id,client_recorded_at:new Date().toISOString()})};
 }
 
+export function comparisonType(trial,parent){
+  if(!parent)return 'BASELINE';
+  if(trial.modelId!==parent.modelId)return trial.question.trim()===parent.question.trim()?'DIFFERENT_BACKEND':'DIFFERENT_BACKEND_AND_QUESTION';
+  const tokenChanged=trial.maxNewTokens!==parent.maxNewTokens;
+  const questionChanged=trial.question.trim()!==parent.question.trim();
+  if(tokenChanged&&questionChanged)return 'SAME_BACKEND_TOKEN_AND_QUESTION';
+  if(tokenChanged)return 'SAME_BACKEND_TOKEN';
+  if(questionChanged)return 'QUESTION_VARIANT';
+  return 'SAME_CONFIGURATION';
+}
+
+export function comparisonLabel(type){
+  return ({BASELINE:'Mốc so sánh',DIFFERENT_BACKEND:'Khác backend · không chỉ khác tokens',DIFFERENT_BACKEND_AND_QUESTION:'Khác backend và câu hỏi',SAME_BACKEND_TOKEN:'Cùng backend · khác token limit',SAME_BACKEND_TOKEN_AND_QUESTION:'Cùng backend · khác token và câu hỏi',QUESTION_VARIANT:'Cùng model · biến thể câu hỏi',SAME_CONFIGURATION:'Cùng cấu hình'})[type]||'Chưa phân loại';
+}
+
 function redact(value){return String(value??'').replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi,'[REDACTED]').replace(/\b(?:hf_[A-Za-z0-9]{20,}|sb_secret_[A-Za-z0-9_-]{16,}|sk-[A-Za-z0-9_-]{20,})\b/g,'[REDACTED]').slice(0,4000);}
 export function researchExport({scenarioId,images,trials},exportedAt=new Date().toISOString()){
   return {format:'vinfqa-research-workspace-v1',exported_at:exportedAt,scenario_id:scenarioId||null,
     images:images.map((image,index)=>({order:index+1,source:image.source||'uploaded',sha256:image.sha256,size_bytes:image.file?.size??null})),
-    trials:trials.map(trial=>({id:trial.id,model_id:trial.modelId,max_new_tokens:trial.maxNewTokens,question:redact(trial.question),reference_answer:redact(trial.reference),reference_source:trial.referenceSource||'USER_REVIEW_REQUIRED',answer:redact(trial.answer),status:trial.status,assessment:trial.assessment||'NOT_ASSESSED',notes:redact(trial.notes),started_at:trial.startedAt||null,completed_at:trial.completedAt||null,wall_seconds:trial.wallSeconds??null,http_status:trial.httpStatus??null,error_code:trial.errorCode||null,request_id:trial.requestId||null,provenance:safeProvenance(trial.provenance)})),
+    trials:trials.map(trial=>({id:trial.id,comparison_to_trial_id:trial.comparisonWith||null,comparison_type:comparisonType(trial,trials.find(item=>item.id===trial.comparisonWith)),model_id:trial.modelId,max_new_tokens:trial.maxNewTokens,question:redact(trial.question),reference_answer:redact(trial.reference),reference_source:trial.referenceSource||'USER_REVIEW_REQUIRED',answer:redact(trial.answer),status:trial.status,assessment:trial.assessment||'NOT_ASSESSED',notes:redact(trial.notes),started_at:trial.startedAt||null,completed_at:trial.completedAt||null,wall_seconds:trial.wallSeconds??null,http_status:trial.httpStatus??null,error_code:trial.errorCode||null,request_id:trial.requestId||null,provenance:safeProvenance(trial.provenance)})),
     limitations:{client_recorded_metadata_is_editable:true,reference_answers_locked_to_original_synthetic_images_and_question:true,includes_image_bytes:false,includes_credentials:false,no_automatic_quality_claim:true}};
 }
 const csvCell=value=>{const text=String(value??'');const safe=/^[=+\-@\t\r]/.test(text)?`'${text}`:text;return `"${safe.replaceAll('"','""')}"`;};
 export function researchCsv(data){
-  const columns=['id','model_id','max_new_tokens','image_count','question','reference_answer','reference_source','answer','status','assessment','notes','wall_seconds','output_tokens','verification_status','request_id','http_status','error_code','image_sha256_ordered'];
+  const columns=['id','comparison_to_trial_id','comparison_type','model_id','max_new_tokens','image_count','question','reference_answer','reference_source','answer','status','assessment','notes','wall_seconds','output_tokens','verification_status','request_id','http_status','error_code','image_sha256_ordered'];
   const rows=data.trials.map(trial=>({ ...trial,image_count:data.images.length,output_tokens:trial.provenance?.output_tokens,verification_status:trial.provenance?.verification_status,image_sha256_ordered:data.images.map(image=>image.sha256).join(';') }));
   return '\ufeff'+[columns.map(csvCell).join(','),...rows.map(row=>columns.map(column=>csvCell(row[column])).join(','))].join('\r\n');
 }
@@ -77,7 +92,7 @@ export function researchMarkdown(data){
   const lines=['# VietInfographicQA · Research Workspace','',`Xuất lúc: ${data.exported_at}`,'','## Ảnh theo thứ tự',''];
   data.images.forEach(image=>lines.push(`${image.order}. SHA-256 ${image.sha256} · ${image.size_bytes??'NOT_VERIFIED'} bytes`));
   for(const trial of data.trials){
-    lines.push('',`## Lượt ${trial.id}`,'',`- Model: ${trial.model_id} · ${trial.max_new_tokens} tokens`,`- Trạng thái: ${trial.status} · đánh giá: ${trial.assessment}`,`- Câu hỏi: ${trial.question.replaceAll('\n',' ')}`,`- Tham chiếu: ${trial.reference_answer.replaceAll('\n',' ')} (${trial.reference_source})`,`- Trả lời: ${trial.answer.replaceAll('\n',' ')}`,`- Ghi chú: ${trial.notes.replaceAll('\n',' ')}`,`- Độ trễ: ${trial.wall_seconds??'NOT_VERIFIED'} s · HTTP ${trial.http_status??'NOT_VERIFIED'} · lỗi ${trial.error_code??'không có'}`,`- Request ID: ${trial.request_id??'NOT_VERIFIED'}`,`- Provenance: ${JSON.stringify(trial.provenance??{})}`);
+    lines.push('',`## Lượt ${trial.id}`,'',`- So với lượt: ${trial.comparison_to_trial_id??'mốc'} · ${comparisonLabel(trial.comparison_type)}`,`- Model: ${trial.model_id} · ${trial.max_new_tokens} tokens`,`- Trạng thái: ${trial.status} · đánh giá: ${trial.assessment}`,`- Câu hỏi: ${trial.question.replaceAll('\n',' ')}`,`- Tham chiếu: ${trial.reference_answer.replaceAll('\n',' ')} (${trial.reference_source})`,`- Trả lời: ${trial.answer.replaceAll('\n',' ')}`,`- Ghi chú: ${trial.notes.replaceAll('\n',' ')}`,`- Độ trễ: ${trial.wall_seconds??'NOT_VERIFIED'} s · HTTP ${trial.http_status??'NOT_VERIFIED'} · lỗi ${trial.error_code??'không có'}`,`- Request ID: ${trial.request_id??'NOT_VERIFIED'}`,`- Provenance: ${JSON.stringify(trial.provenance??{})}`);
   }
   lines.push('','_Bản xuất do trình duyệt tạo; metadata có thể bị sửa. Ảnh và credential không được đính kèm. Đây không phải đánh giá benchmark._');
   return lines.join('\n');

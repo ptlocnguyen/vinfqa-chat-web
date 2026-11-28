@@ -4,7 +4,8 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {UI_MODEL_IDS} from '../assets/model-registry.mjs';
-import {SAMPLE_IMAGES,SAMPLE_SCENARIOS,compatibleModels,validateResearchTrial,makeResearchForm,checkedResult,researchExport,researchCsv,researchMarkdown} from '../assets/research-core.mjs';
+import {SAMPLE_IMAGES,SAMPLE_SCENARIOS,compatibleModels,validateResearchTrial,makeResearchForm,checkedResult,comparisonType,researchExport,researchCsv,researchMarkdown} from '../assets/research-core.mjs';
+import {safeTurnstileErrorCode,turnstileErrorText,turnstileWidgetOptions} from '../assets/turnstile-contract.mjs';
 
 const health={status:'ready',capabilities:{max_new_tokens:[32,64,128],models:[
   {model_id:UI_MODEL_IDS.V04,enabled:true,image_min:1,image_max:1,max_new_tokens:[32]},
@@ -71,6 +72,31 @@ test('result contract validates mode, cap, model if present, count and output to
   const m7={...payload,provenance:{...payload.provenance,inference_mode:'M7_MULTI_IMAGE_DEMO',model_id:UI_MODEL_IDS.M7,requested_max_new_tokens:96,max_new_tokens:96,image_count:4}};
   assert.equal(checkedResult(m7,{modelId:UI_MODEL_IDS.M7,maxNewTokens:96},4)?.answer,'24');
   assert.equal(checkedResult(m7,{modelId:UI_MODEL_IDS.M7,maxNewTokens:96},2),null);
+});
+
+test('comparison metadata separates backend changes from token-only changes',()=>{
+  const v04={id:'a',modelId:UI_MODEL_IDS.V04,maxNewTokens:32,question:'Tháng 2?'};
+  const ext64={id:'b',comparisonWith:'a',modelId:UI_MODEL_IDS.EXTENDED,maxNewTokens:64,question:'Tháng 2?'};
+  const ext128={id:'c',comparisonWith:'b',modelId:UI_MODEL_IDS.EXTENDED,maxNewTokens:128,question:'Tháng 2?'};
+  assert.equal(comparisonType(ext64,v04),'DIFFERENT_BACKEND');
+  assert.equal(comparisonType(ext128,ext64),'SAME_BACKEND_TOKEN');
+  const data=researchExport({images:[image],trials:[v04,ext64,ext128]});
+  assert.deepEqual(data.trials.map(item=>item.comparison_type),['BASELINE','DIFFERENT_BACKEND','SAME_BACKEND_TOKEN']);
+  assert.match(researchCsv(data),/DIFFERENT_BACKEND/);
+  assert.match(researchMarkdown(data),/Khác backend/);
+});
+
+test('shared Turnstile contract preserves Chat recovery callbacks and rejects stale widget events',()=>{
+  let current=true;const events=[];
+  const options=turnstileWidgetOptions({sitekey:'mock-sitekey',theme:'dark',isCurrent:()=>current,onVerified:token=>events.push(['verified',token]),onExpired:()=>events.push(['expired']),onTimeout:()=>events.push(['timeout']),onError:code=>events.push(['error',code])});
+  assert.deepEqual([options.action,options.size,options.retry],['vinfqa_infer','compact','never']);
+  options.callback('');options.callback('fresh');options['expired-callback']();options['timeout-callback']();
+  assert.equal(options['error-callback']('110200'),true);
+  current=false;options.callback('stale');options['error-callback']('token-value');
+  assert.deepEqual(events,[['verified','fresh'],['expired'],['timeout'],['error','110200']]);
+  assert.equal(safeTurnstileErrorCode('secret'), '');
+  assert.match(turnstileErrorText('110200'),/110200/);
+  assert.doesNotMatch(turnstileErrorText('secret'),/secret/);
 });
 
 test('exports preserve ordered hashes and manual assessment while omitting bytes and secrets',()=>{

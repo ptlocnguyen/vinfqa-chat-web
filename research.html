@@ -9,8 +9,8 @@
   <meta name="description" content="Research Workspace cho so sánh có kiểm soát trên infographic tổng hợp." />
   <title>Research Workspace · VietInfographicQA</title>
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="./assets/styles.css?v=20261128-4" />
-  <link rel="stylesheet" href="./assets/research.css?v=20261128-1" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20261128-5" />
+  <link rel="stylesheet" href="./assets/research.css?v=20261128-2" />
 </head>
 <body class="research-page">
   <header class="research-header">
@@ -35,8 +35,8 @@
       </section>
       <section class="research-panel research-work" aria-labelledby="researchWorkTitle">
         <div class="research-section-head"><div><span class="research-step">02</span><h2 id="researchWorkTitle">Lượt thử</h2></div><span id="researchCapability" class="research-count">Đang đọc capabilities</span></div>
-        <p class="research-hint">So sánh model chỉ khi cùng số ảnh được hỗ trợ. SSRC v04 dùng 32 tokens, Extended 4B dùng 64/128, M7 dùng 96.</p>
-        <div class="research-actions"><button id="addVariant" type="button">＋ Biến thể câu hỏi</button><button id="addModel" type="button">＋ Model tương thích</button><button id="addToken" type="button">＋ Giới hạn token</button></div>
+        <p class="research-hint">Extended 64↔128 là so sánh token trong cùng backend. SSRC v04 32 ↔ Extended 64/128 là so sánh khác backend; không quy khác biệt kết quả chỉ cho token limit. M7 dùng 96 tokens.</p>
+        <div class="research-actions"><button id="addVariant" type="button">＋ Biến thể câu hỏi</button><button id="addModel" type="button">＋ Model tương thích</button><button id="addToken" type="button">＋ Token cùng backend</button></div>
         <div id="researchTrials" class="research-trials" aria-live="polite"></div>
         <div class="research-verification">
           <div><strong>Xác minh cho lượt gửi tiếp theo</strong><p id="researchTurnstileStatus" role="status">Mở xác minh khi sẵn sàng chạy một lượt thử.</p></div>
@@ -56,6 +56,6 @@
   <dialog id="researchImageViewer" class="research-image-viewer"><div><strong id="researchImageTitle">Ảnh infographic</strong><button id="researchCloseViewer" type="button" aria-label="Đóng ảnh lớn">✕</button></div><img id="researchImageLarge" alt="Infographic phóng lớn" /></dialog>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js?v=20261122-4"></script>
-  <script type="module" src="./assets/research.js?v=20261128-1"></script>
+  <script type="module" src="./assets/research.js?v=20261128-2"></script>
 </body>
 </html>

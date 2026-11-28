@@ -5,6 +5,7 @@ import {conversationMarkdown,exportConversation,safeProvenance} from './conversa
 import {icon,setIcon} from './lucide-icons.mjs';
 import {disambiguateNames,imageSha256,moveItem,removeItem} from './image-items.mjs';
 import {recallQuestion} from './question-recall.mjs';
+import {TURNSTILE_LOAD_TIMEOUT_MS,turnstileErrorText,turnstileWidgetOptions} from './turnstile-contract.mjs';
 
 const cfg = window.VINFQA_PUBLIC_CONFIG || {};
 const $ = (selector) => document.querySelector(selector);
@@ -14,7 +15,6 @@ const root = document.documentElement;
 const INFERENCE_TIMEOUT_MS = 390_000;
 const HEALTH_TIMEOUT_MS = 10_000;
 const BACKEND_STATUS_TIMEOUT_MS = 15_000;
-const TURNSTILE_LOAD_TIMEOUT_MS = 15_000;
 const HEALTH_RETRY_DELAYS_MS = [3_000,10_000,30_000];
 const MAX_SESSIONS = 10;
 const state = {
@@ -341,9 +341,9 @@ function renderSidebar() {
     for(const [label,glyph,handler] of [
       [session.pinned?'Bỏ ghim phiên (chỉ trong tab)':'Ghim phiên (chỉ trong tab)','◇',()=>{session.pinned=!session.pinned;renderSidebar();}],
       ['Đổi tên phiên (chỉ trong tab)','✎',()=>renameSession(session)],
-      [session.remote?'Ẩn phiên khỏi tab (không xóa tài khoản)':'Xóa phiên khỏi tab','×',()=>deleteSession(session)],
+      [session.remote?'Ẩn khỏi tab (không xóa trên tài khoản)':'Xóa phiên khỏi tab',session.remote?'Ẩn':'×',()=>deleteSession(session)],
     ]){
-      const button=htmlElement('button','chat-row-action',glyph);button.type='button';button.title=label;button.setAttribute('aria-label',`${label}: ${session.title}`);button.disabled=state.busy;button.onclick=handler;actions.append(button);
+      const button=htmlElement('button',`chat-row-action${session.remote&&glyph==='Ẩn'?' remote-hide':''}`,glyph);button.type='button';button.title=label;button.setAttribute('aria-label',`${label}: ${session.title}`);button.disabled=state.busy;button.onclick=handler;actions.append(button);
     }
     row.append(item,actions);refs.chatList.append(row);
   }
@@ -622,13 +622,7 @@ function turnstileStatusText(value){
   if(value==='expired')return 'Xác minh đã hết hạn. Nhấn thử lại để lấy lượt xác minh mới.';
   if(value==='timeout')return 'Xác minh quá thời gian. Nhấn thử lại.';
   if(value==='unavailable')return 'Không tải được Turnstile. Kiểm tra kết nối hoặc trình chặn nội dung rồi thử lại.';
-  if(value==='error'){
-    const code=state.turnstileErrorCode;
-    const config=['110100','110110','110200','400020','400021','400070'].includes(code);
-    const network=code==='200500';
-    const clock=code==='200100';
-    return `${config?'Cấu hình xác minh chưa hợp lệ. Báo quản trị viên.':network?'Không tải được khung xác minh. Kiểm tra kết nối hoặc trình chặn nội dung.':clock?'Kiểm tra ngày giờ máy và tải lại trang.':'Xác minh thất bại. Thử lại hoặc dùng trình duyệt khác.'}${code?` Mã ${code}.`:''}`;
-  }
+  if(value==='error')return turnstileErrorText(state.turnstileErrorCode);
   return 'Chưa xác minh được.';
 }
 function setProofState(value) {
@@ -857,27 +851,21 @@ function renderTurnstileWidget() {
   const epoch=++state.turnstileEpoch;
   setProofState('loading');
   try {
-    state.widgetId = window.turnstile.render(refs.turnstile, {
-      sitekey: cfg.TURNSTILE_SITE_KEY,
-      theme,
-      size: 'compact',
-      action: 'vinfqa_infer',
-      retry: 'never',
-      callback: (token) => {
-        if(epoch!==state.turnstileEpoch||typeof token!=='string'||!token)return;
+    state.widgetId = window.turnstile.render(refs.turnstile, turnstileWidgetOptions({
+      sitekey:cfg.TURNSTILE_SITE_KEY,theme,isCurrent:()=>epoch===state.turnstileEpoch,
+      onVerified:token=>{
         state.turnstileToken = token; setProofState('verified'); updateSendState();
         if (state.verificationRequested) (refs.send.disabled ? refs.question : refs.send).focus();
         state.verificationRequested = false;
       },
-      'expired-callback': () => {if(epoch!==state.turnstileEpoch)return;state.turnstileToken='';state.turnstileNeedsReset=true;setProofState('expired');updateSendState();},
-      'timeout-callback': () => {if(epoch!==state.turnstileEpoch)return;state.turnstileToken='';state.turnstileNeedsReset=true;setProofState('timeout');updateSendState();},
-      'error-callback': (errorCode) => {
-        if(epoch!==state.turnstileEpoch)return true;
+      onExpired:()=>{state.turnstileToken='';state.turnstileNeedsReset=true;setProofState('expired');updateSendState();},
+      onTimeout:()=>{state.turnstileToken='';state.turnstileNeedsReset=true;setProofState('timeout');updateSendState();},
+      onError:errorCode=>{
         state.turnstileToken='';state.turnstileNeedsReset=true;
-        state.turnstileErrorCode=/^\d{6}$/.test(String(errorCode))?String(errorCode):'';
-        setProofState('error');updateSendState();return true;
+        state.turnstileErrorCode=errorCode;
+        setProofState('error');updateSendState();
       },
-    });
+    }));
     state.turnstileTheme=theme;
     refs.turnstileStatus.textContent=turnstileStatusText('loading');
   } catch {state.turnstileErrorCode='';setProofState('error');}
